@@ -1,6 +1,6 @@
 FROM php:8.3-apache
 
-# Install sistem dependensi yang dibutuhkan PHP
+# Install sistem dependensi
 RUN apt-get update && apt-get install -y \
     libpng-dev \
     libjpeg-dev \
@@ -11,8 +11,13 @@ RUN apt-get update && apt-get install -y \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install gd zip pdo_mysql
 
-# Tambahkan baris ini setelah bagian docker-php-ext-install
-RUN a2dismod mpm_event mpm_worker && a2enmod mpm_prefork
+# Perbaikan error AH00534 (MPM Conflict)
+RUN rm /etc/apache2/mods-enabled/mpm_*.conf \
+    && rm /etc/apache2/mods-enabled/mpm_*.load \
+    && a2enmod mpm_prefork
+
+# Arahkan Document Root ke folder 'public' Laravel
+RUN sed -i 's|/var/www/html|/var/www/html/public|g' /etc/apache2/sites-available/000-default.conf
 
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
@@ -25,6 +30,9 @@ WORKDIR /var/www/html
 
 # Berikan akses folder
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
+
+# Aktifkan mod_rewrite (PENTING untuk routing Laravel)
+RUN a2enmod rewrite
 
 # Jalankan instalasi dependensi
 RUN composer install --no-dev --optimize-autoloader
