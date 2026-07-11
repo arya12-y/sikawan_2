@@ -11,10 +11,10 @@ RUN apt-get update && apt-get install -y \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install gd zip pdo_mysql
 
-# Perbaikan error AH00534 (MPM Conflict)
-RUN rm /etc/apache2/mods-enabled/mpm_*.conf \
-    && rm /etc/apache2/mods-enabled/mpm_*.load \
-    && a2enmod mpm_prefork
+# --- BAGIAN PENTING: Perbaikan MPM ---
+RUN a2dismod mpm_event mpm_worker mpm_prefork || true
+RUN a2enmod mpm_prefork
+# ------------------------------------
 
 # Arahkan Document Root ke folder 'public' Laravel
 RUN sed -i 's|/var/www/html|/var/www/html/public|g' /etc/apache2/sites-available/000-default.conf
@@ -31,7 +31,7 @@ WORKDIR /var/www/html
 # Berikan akses folder
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
 
-# Aktifkan mod_rewrite (PENTING untuk routing Laravel)
+# Aktifkan mod_rewrite
 RUN a2enmod rewrite
 
 # Jalankan instalasi dependensi
