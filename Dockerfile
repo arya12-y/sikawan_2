@@ -1,12 +1,13 @@
 FROM php:8.3-fpm
 
-# Install sistem dependensi
+# 1. Install sistem dependensi (GD, Zip, MySQL, Nginx)
 RUN apt-get update && apt-get install -y \
-    libpng-dev libjpeg-dev libfreetype6-dev libzip-dev zip unzip nginx \
+    libpng-dev libjpeg-dev libfreetype6-dev libzip-dev \
+    zip unzip nginx git \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install gd zip pdo_mysql
 
-# Copy konfigurasi Nginx untuk Laravel
+# 2. Konfigurasi Nginx agar Laravel bisa jalan
 RUN echo 'server {\n\
     listen 80;\n\
     index index.php index.html;\n\
@@ -22,16 +23,21 @@ RUN echo 'server {\n\
     }\n\
 }' > /etc/nginx/sites-available/default
 
-# Install Composer
+# 3. Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Salin semua file proyek
+# 4. Copy semua file project ke dalam container
 COPY . /var/www/html
 WORKDIR /var/www/html
 
-# Izin folder dan Install Dependensi
+# 5. Berikan akses folder & Install dependensi
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache \
     && composer install --no-dev --optimize-autoloader --ignore-platform-reqs
 
-# Jalankan Nginx dan PHP-FPM secara bersamaan
+# 6. Jalankan command agar Laravel bersih
+RUN php artisan config:cache \
+    && php artisan route:cache \
+    && php artisan view:cache
+
+# 7. Jalankan Nginx dan PHP-FPM
 CMD service nginx start && php-fpm
