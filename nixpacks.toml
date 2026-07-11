@@ -1,2 +1,5 @@
+[phases.build]
+cmds = ["composer install --optimize-autoloader --no-interaction --ignore-platform-req=ext-gd"]
+
 [phases.setup]
 nixPkgs = ["php83", "php83Extensions.gd", "composer"]
