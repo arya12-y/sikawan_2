@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { canAccessPath } from '../utils/access'
 import { useAuth } from '../hooks/useAuth'
@@ -34,18 +35,18 @@ const titleMap = {
   '/pembelajaran/quiz': 'Quiz & Latihan',
 }
 
-function SidebarContent({ user, onNavigate }) {
+function SidebarContent({ user }) {
   const visibleMenus = menuItems.filter((item) => canAccessPath(user, item.path))
 
   return (
     <>
-      <Link className="brand-link" to="/" onClick={onNavigate}>
+      <Link className="brand-link" to="/">
         <span className="brand-icon"><i className="bi bi-mortarboard-fill"></i></span>
         <div><div className="brand-text">SIKAWAN</div><div className="brand-sub">Kompetensi Walidata</div></div>
       </Link>
       <nav className="sidebar-nav">
         {visibleMenus.map((item) => (
-          <NavLink key={item.path} to={item.path} end={item.path === '/'} className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`} onClick={onNavigate}>
+          <NavLink key={item.path} to={item.path} end={item.path === '/'} className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`}>
             <i className={`bi ${item.icon}`}></i>
             <span>{item.label}</span>
           </NavLink>
@@ -68,29 +69,32 @@ function AdminLayout() {
     document.body.style.overflow = ''
   }
 
+  useEffect(() => {
+    if (window.innerWidth < 992) closeMobileSidebar()
+  }, [location.pathname])
+
   return (
     <div className="admin-wrapper">
       <aside className="admin-sidebar d-none d-lg-flex">
-        <SidebarContent user={user} onNavigate={() => {}} />
+        <SidebarContent user={user} />
       </aside>
       <div className="offcanvas offcanvas-start admin-offcanvas" tabIndex="-1" id="mobileSidebar">
         <div className="offcanvas-body p-0">
-          <SidebarContent user={user} onNavigate={closeMobileSidebar} />
+          <SidebarContent user={user} />
         </div>
       </div>
       <div className="admin-main">
         <header className="admin-navbar navbar navbar-expand bg-white">
           <div className="container-fluid px-3 px-lg-4">
-            <button className="btn btn-icon d-lg-none me-2" type="button" data-bs-toggle="offcanvas" data-bs-target="#mobileSidebar" aria-controls="mobileSidebar" onClick={() => {
-              const target = document.getElementById('mobileSidebar')
-              if (target && !target.classList.contains('show')) {
-                target.classList.add('show')
-                const backdrop = document.createElement('div')
-                backdrop.className = 'offcanvas-backdrop fade show'
-                document.body.appendChild(backdrop)
-                document.body.style.overflow = 'hidden'
-                backdrop.onclick = closeMobileSidebar
-              }
+            <button className="btn btn-icon d-lg-none me-2" type="button" onClick={() => {
+              const el = document.getElementById('mobileSidebar')
+              if (!el || el.classList.contains('show')) return
+              el.classList.add('show')
+              const backdrop = document.createElement('div')
+              backdrop.className = 'offcanvas-backdrop fade show'
+              document.body.appendChild(backdrop)
+              document.body.style.overflow = 'hidden'
+              backdrop.onclick = closeMobileSidebar
             }}>
               <i className="bi bi-list fs-5"></i>
             </button>
