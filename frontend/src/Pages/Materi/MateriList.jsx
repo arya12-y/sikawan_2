@@ -10,7 +10,7 @@ const jenisConfig = {
   presentasi: { title: 'Presentasi', icon: 'bi-easel-fill', gradient: 'linear-gradient(135deg, #f59e0b, #f97316)', accept: '.ppt,.pptx,.odp', viewLabel: 'Lihat', viewIcon: 'bi-eye' },
 }
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api'
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://backend-production-fdfb.up.railway.app/api'
 const STORAGE_URL = API_BASE.replace(/\/api$/, '') + '/storage/'
 
 function getYoutubeId(url) {
