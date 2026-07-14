@@ -63,19 +63,29 @@ class MateriController extends CrudController
     public function store(Request $request)
     {
         $data = Validator::make($request->all(), $this->validationRules())->validate();
+        $hasFile = $request->hasFile('file');
         $data = $this->files($request, $data) + ['created_by' => $request->user()?->id] + $data;
         $materi = Materi::create($data);
 
-        return response()->json($materi->load($this->with), 201);
+        return response()->json([
+            'materi' => $materi->load($this->with),
+            'file_uploaded' => $hasFile,
+            'file_path' => $materi->file_path,
+        ], 201);
     }
 
     public function update(Request $request, $id)
     {
         $materi = Materi::findOrFail($id);
+        $hasFile = $request->hasFile('file');
         $data = Validator::make($request->all(), $this->validationRules($materi))->validate();
         $materi->update($this->files($request, $data) + $data);
 
-        return response()->json($materi->load($this->with));
+        return response()->json([
+            'materi' => $materi->load($this->with),
+            'file_uploaded' => $hasFile,
+            'file_path' => $materi->fresh()->file_path,
+        ]);
     }
 
     public function publish($id)

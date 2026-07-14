@@ -188,6 +188,10 @@ function MateriList({ jenis }) {
               <div className="ratio" style={{ minHeight: 600, '--bs-aspect-ratio': 'auto' }}>
                 <iframe src={FILE_URL + '/api/materi/' + viewing.id + '/file'} title={viewing.judul} style={{ width: '100%', height: 600, border: 'none' }}></iframe>
               </div>
+            ) : viewing.file_path ? (
+              <div className="ratio" style={{ minHeight: 500 }}>
+                <iframe src={'https://view.officeapps.live.com/op/view.aspx?src=' + encodeURIComponent(FILE_URL + '/api/materi/' + viewing.id + '/file')} title={viewing.judul} style={{ width: '100%', height: 500, border: 'none' }}></iframe>
+              </div>
             ) : (
               <div className="text-center py-4 text-muted">
                 <i className="bi bi-exclamation-circle d-block mb-2" style={{ fontSize: '2rem' }}></i>
