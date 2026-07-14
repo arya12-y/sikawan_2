@@ -49,7 +49,8 @@ function BankSoal() {
   useEffect(() => {
     if (!showForm) return
     if (editing) {
-      const choices = Array.isArray(editing.pilihan) ? editing.pilihan : []
+      const rawPilihan = editing.pilihan
+      const choices = Array.isArray(rawPilihan) ? rawPilihan : (typeof rawPilihan === 'string' ? (() => { try { return JSON.parse(rawPilihan) } catch { return [] } })() : [])
       const letterIndex = choices.findIndex((c) => c === editing.jawaban_benar)
       reset({
         kompetensi_id: editing.kompetensi_id || '',

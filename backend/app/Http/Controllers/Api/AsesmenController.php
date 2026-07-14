@@ -71,7 +71,10 @@ class AsesmenController extends CrudController
             $asesmen->bankSoals()->sync($soals->mapWithKeys(fn ($soalId, $i) => [$soalId => ['urutan' => $i + 1]])->all());
         }
 
-        $peserta = PesertaAsesmen::firstOrCreate(['asesmen_id' => $asesmen->id, 'user_id' => $request->user()->id], ['waktu_mulai' => now(), 'status' => 'sedang_mengerjakan']);
+        $existing = PesertaAsesmen::where(['asesmen_id' => $asesmen->id, 'user_id' => $request->user()->id])->first();
+        abort_if($existing && in_array($existing->status, ['selesai', 'dinilai'], true), 422, 'Anda sudah mengerjakan asesmen ini sebelumnya');
+
+        $peserta = $existing ?? PesertaAsesmen::create(['asesmen_id' => $asesmen->id, 'user_id' => $request->user()->id, 'waktu_mulai' => now(), 'status' => 'sedang_mengerjakan']);
         $peserta->load(['asesmen.bankSoals' => fn ($query) => $asesmen->acak_soal ? $query->inRandomOrder() : $query->orderBy('asesmen_soals.urutan'), 'jawabanPesertas']);
 
         return response()->json($peserta);

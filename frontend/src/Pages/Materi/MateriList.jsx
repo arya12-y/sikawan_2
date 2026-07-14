@@ -10,7 +10,7 @@ const jenisConfig = {
   presentasi: { title: 'Presentasi', icon: 'bi-easel-fill', gradient: 'linear-gradient(135deg, #f59e0b, #f97316)', accept: '.ppt,.pptx,.odp', viewLabel: 'Lihat', viewIcon: 'bi-eye' },
 }
 
-const STORAGE_URL = (import.meta.env.VITE_STORAGE_URL || 'http://localhost:8000/storage') + '/'
+const STORAGE_URL = (import.meta.env.VITE_STORAGE_URL || window.location.origin + '/storage') + '/'
 
 function getYoutubeId(url) {
   if (!url) return null
@@ -229,12 +229,10 @@ function MateriList({ jenis }) {
               {rows.map((row) => (
                 <div className="col-md-6 col-xl-4" key={row.id}>
                   <div className="card border h-100">
-                    {row.thumbnail && <img src={STORAGE_URL + row.thumbnail} alt={row.judul} className="card-img-top" style={{ height: 160, objectFit: 'cover' }} />}
-                    {!row.thumbnail && (
-                      <div className="card-img-top d-grid place-items-center text-white" style={{ height: 120, background: config.gradient }}>
-                        <i className={`bi ${config.icon}`} style={{ fontSize: '2.5rem' }}></i>
-                      </div>
-                    )}
+                    {row.thumbnail ? <img src={STORAGE_URL + row.thumbnail} alt={row.judul} className="card-img-top" style={{ height: 160, objectFit: 'cover' }} onError={(e) => { e.target.style.display = 'none'; e.target.parentNode.querySelector('.thumb-fallback')?.classList.remove('d-none') }} /> : null}
+                    <div className={`card-img-top d-grid place-items-center text-white thumb-fallback ${row.thumbnail ? 'd-none' : ''}`} style={{ height: 120, background: config.gradient, fontSize: '2.5rem' }}>
+                      <i className={`bi ${config.icon}`}></i>
+                    </div>
                     <div className="card-body">
                       <h6 className="fw-bold mb-1">{row.judul}</h6>
                       {row.deskripsi && <p className="text-muted small mb-2">{row.deskripsi.substring(0, 100)}{row.deskripsi.length > 100 ? '...' : ''}</p>}
