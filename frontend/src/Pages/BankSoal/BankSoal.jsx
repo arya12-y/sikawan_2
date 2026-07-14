@@ -46,30 +46,37 @@ function BankSoal() {
 
   const formKey = useMemo(() => editing?.id || 'create', [editing?.id])
 
+  useEffect(() => {
+    if (!showForm) return
+    if (editing) {
+      const choices = Array.isArray(editing.pilihan) ? editing.pilihan : []
+      const letterIndex = choices.findIndex((c) => c === editing.jawaban_benar)
+      reset({
+        kompetensi_id: editing.kompetensi_id || '',
+        level_id: editing.level_id || '',
+        jenis: editing.jenis || 'pilihan_ganda',
+        pertanyaan: editing.pertanyaan || '',
+        pilihan_a: choices[0] || '',
+        pilihan_b: choices[1] || '',
+        pilihan_c: choices[2] || '',
+        pilihan_d: choices[3] || '',
+        jawaban_benar_letter: letterIndex >= 0 ? ['A', 'B', 'C', 'D'][letterIndex] : editing.jawaban_benar || '',
+        pembahasan: editing.pembahasan || '',
+        bobot: editing.bobot || 1,
+        is_active: editing.is_active ? 1 : 0,
+      })
+    } else {
+      reset({ kompetensi_id: '', level_id: '', jenis: 'pilihan_ganda', pertanyaan: '', pilihan_a: '', pilihan_b: '', pilihan_c: '', pilihan_d: '', jawaban_benar_letter: '', pembahasan: '', bobot: 1, is_active: 1 })
+    }
+  }, [showForm, editing, reset])
+
   const openCreate = () => {
     setEditing(null)
-    reset({ kompetensi_id: '', level_id: '', jenis: 'pilihan_ganda', pertanyaan: '', pilihan_a: '', pilihan_b: '', pilihan_c: '', pilihan_d: '', jawaban_benar_letter: '', pembahasan: '', bobot: 1, is_active: 1 })
     setShowForm(true)
   }
 
   const openEdit = (row) => {
-    const choices = Array.isArray(row.pilihan) ? row.pilihan : []
-    const letterIndex = choices.findIndex((c) => c === row.jawaban_benar)
     setEditing(row)
-    reset({
-      kompetensi_id: row.kompetensi_id || '',
-      level_id: row.level_id || '',
-      jenis: row.jenis || 'pilihan_ganda',
-      pertanyaan: row.pertanyaan || '',
-      pilihan_a: choices[0] || '',
-      pilihan_b: choices[1] || '',
-      pilihan_c: choices[2] || '',
-      pilihan_d: choices[3] || '',
-      jawaban_benar_letter: letterIndex >= 0 ? ['A', 'B', 'C', 'D'][letterIndex] : row.jawaban_benar || '',
-      pembahasan: row.pembahasan || '',
-      bobot: row.bobot || 1,
-      is_active: row.is_active ? 1 : 0,
-    })
     setShowForm(true)
   }
 

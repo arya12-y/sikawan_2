@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+﻿import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import api from '../../api/axios'
@@ -34,6 +34,7 @@ function MateriList({ jenis }) {
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState(null)
   const [viewing, setViewing] = useState(null)
+  const [thumbnailPreview, setThumbnailPreview] = useState(null)
   const { register, handleSubmit, reset } = useForm()
 
   const load = useCallback(async () => {
@@ -73,24 +74,36 @@ function MateriList({ jenis }) {
 
   const openCreate = () => {
     setEditing(null)
-    reset({ kompetensi_id: '', level_id: '', kategori_id: '', judul: '', deskripsi: '', url_video: '', durasi: '', is_published: 0 })
     setShowForm(true)
   }
 
   const openEdit = (row) => {
     setEditing(row)
-    reset({
-      kompetensi_id: row.kompetensi_id || '',
-      level_id: row.level_id || '',
-      kategori_id: row.kategori_id || '',
-      judul: row.judul || '',
-      deskripsi: row.deskripsi || '',
-      url_video: row.url_video || '',
-      durasi: row.durasi || '',
-      is_published: row.is_published ? 1 : 0,
-    })
     setShowForm(true)
   }
+
+  useEffect(() => {
+    if (showForm) return
+    queueMicrotask(() => setThumbnailPreview(null))
+  }, [showForm])
+
+  useEffect(() => {
+    if (!showForm) return
+    if (editing) {
+      reset({
+        kompetensi_id: editing.kompetensi_id || '',
+        level_id: editing.level_id || '',
+        kategori_id: editing.kategori_id || '',
+        judul: editing.judul || '',
+        deskripsi: editing.deskripsi || '',
+        url_video: editing.url_video || '',
+        durasi: editing.durasi || '',
+        is_published: editing.is_published ? 1 : 0,
+      })
+    } else {
+      reset({ kompetensi_id: '', level_id: '', kategori_id: '', judul: '', deskripsi: '', url_video: '', durasi: '', is_published: 0 })
+    }
+  }, [showForm, editing, reset])
 
   const onSubmit = async (data) => {
     try {
@@ -315,7 +328,10 @@ function MateriList({ jenis }) {
                     </div>
                     <div className="col-md-6">
                       <label className="form-label fw-semibold">Thumbnail</label>
-                      <input className="form-control" type="file" accept="image/*" {...register('thumbnail_file')} />
+                      <input className="form-control" type="file" accept="image/*" {...register('thumbnail_file')} onChange={(e) => {
+                        if (e.target.files?.[0]) setThumbnailPreview(URL.createObjectURL(e.target.files[0]))
+                      }} />
+                      {thumbnailPreview && <div className="mt-2 border rounded-3 overflow-hidden" style={{ width: 140, height: 90 }}><img src={thumbnailPreview} className="w-100 h-100" style={{ objectFit: 'cover' }} alt="preview" /></div>}
                     </div>
                     <div className="col-md-4">
                       <label className="form-label fw-semibold">Status</label>
