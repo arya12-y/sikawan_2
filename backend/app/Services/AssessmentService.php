@@ -11,10 +11,31 @@ class AssessmentService
     public function calculateAnswerScore(BankSoal $soal, ?string $jawaban): array
     {
         $jenis = strtolower((string) $soal->jenis);
-        $benar = in_array($jenis, ['essay', 'esai'], true) ? null : trim((string) $jawaban) === trim((string) $soal->jawaban_benar);
-        $nilai = $benar === true ? (float) $soal->bobot : 0.0;
+        
+        if (in_array($jenis, ['essay', 'esai'], true)) {
+            return ['is_benar' => null, 'nilai' => 0.0];
+        }
 
-        return ['is_benar' => $benar, 'nilai' => $nilai];
+        $jawaban = trim((string) $jawaban);
+        $kunci = trim((string) $soal->jawaban_benar);
+        $benar = $jawaban === $kunci;
+
+        // Jika tidak cocok teks, coba cocok berdasarkan huruf (A/B/C/D) ke indeks pilihan
+        if (!$benar) {
+            $pilihan = is_array($soal->pilihan) ? $soal->pilihan : (json_decode((string) $soal->pilihan, true) ?? []);
+            $indeksKunci = array_search($kunci, ['A', 'B', 'C', 'D', 'E'], true);
+            $indeksJawab = array_search($jawaban, ['A', 'B', 'C', 'D', 'E'], true);
+
+            if ($indeksKunci !== false && isset($pilihan[$indeksKunci])) {
+                $benar = $jawaban === $pilihan[$indeksKunci];
+            }
+
+            if (!$benar && $indeksJawab !== false && isset($pilihan[$indeksJawab])) {
+                $benar = $kunci === $pilihan[$indeksJawab];
+            }
+        }
+
+        return ['is_benar' => $benar, 'nilai' => $benar ? (float) $soal->bobot : 0.0];
     }
 
     public function recalculatePeserta(PesertaAsesmen $peserta): PesertaAsesmen

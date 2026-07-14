@@ -48,12 +48,13 @@ function BankSoal() {
 
   const openCreate = () => {
     setEditing(null)
-    reset({ kompetensi_id: '', level_id: '', jenis: 'pilihan_ganda', pertanyaan: '', pilihan_a: '', pilihan_b: '', pilihan_c: '', pilihan_d: '', jawaban_benar: '', pembahasan: '', bobot: 1, is_active: 1 })
+    reset({ kompetensi_id: '', level_id: '', jenis: 'pilihan_ganda', pertanyaan: '', pilihan_a: '', pilihan_b: '', pilihan_c: '', pilihan_d: '', jawaban_benar_letter: '', pembahasan: '', bobot: 1, is_active: 1 })
     setShowForm(true)
   }
 
   const openEdit = (row) => {
     const choices = Array.isArray(row.pilihan) ? row.pilihan : []
+    const letterIndex = choices.findIndex((c) => c === row.jawaban_benar)
     setEditing(row)
     reset({
       kompetensi_id: row.kompetensi_id || '',
@@ -64,7 +65,7 @@ function BankSoal() {
       pilihan_b: choices[1] || '',
       pilihan_c: choices[2] || '',
       pilihan_d: choices[3] || '',
-      jawaban_benar: row.jawaban_benar || '',
+      jawaban_benar_letter: letterIndex >= 0 ? ['A', 'B', 'C', 'D'][letterIndex] : row.jawaban_benar || '',
       pembahasan: row.pembahasan || '',
       bobot: row.bobot || 1,
       is_active: row.is_active ? 1 : 0,
@@ -74,13 +75,17 @@ function BankSoal() {
 
   const save = async (data) => {
     const pilihan = [data.pilihan_a, data.pilihan_b, data.pilihan_c, data.pilihan_d].filter(Boolean)
+    const letterMap = { A: 0, B: 1, C: 2, D: 3 }
+    const jawabanBenar = data.jenis === 'pilihan_ganda' && data.jawaban_benar_letter
+      ? (pilihan[letterMap[data.jawaban_benar_letter]] || data.jawaban_benar_letter)
+      : data.jawaban_benar_letter
     const payload = {
       kompetensi_id: data.kompetensi_id,
       level_id: data.level_id || null,
       jenis: data.jenis,
       pertanyaan: data.pertanyaan,
       pilihan: data.jenis === 'pilihan_ganda' ? pilihan : null,
-      jawaban_benar: data.jawaban_benar || null,
+      jawaban_benar: jawabanBenar || null,
       pembahasan: data.pembahasan || null,
       bobot: Number(data.bobot || 1),
       is_active: Number(data.is_active) === 1,
@@ -181,8 +186,9 @@ function BankSoal() {
             <div className="col-md-3"><label className="form-label">Bobot</label><input className="form-control" type="number" step="0.1" {...register('bobot', { required: true })} /></div>
             <div className="col-md-3"><label className="form-label">Status</label><select className="form-select" {...register('is_active')}><option value={1}>Aktif</option><option value={0}>Nonaktif</option></select></div>
             <div className="col-12"><label className="form-label">Pertanyaan</label><textarea className="form-control" rows="3" {...register('pertanyaan', { required: true })} /></div>
-            {jenis === 'pilihan_ganda' && <><div className="col-md-6"><label className="form-label">Pilihan A</label><input className="form-control" {...register('pilihan_a')} /></div><div className="col-md-6"><label className="form-label">Pilihan B</label><input className="form-control" {...register('pilihan_b')} /></div><div className="col-md-6"><label className="form-label">Pilihan C</label><input className="form-control" {...register('pilihan_c')} /></div><div className="col-md-6"><label className="form-label">Pilihan D</label><input className="form-control" {...register('pilihan_d')} /></div></>}
-            <div className="col-12"><label className="form-label">Jawaban Benar</label><input className="form-control" placeholder="Isi sama persis dengan pilihan benar untuk PG" {...register('jawaban_benar')} /></div>
+            {jenis === 'pilihan_ganda' && <><div className="col-md-6"><label className="form-label">Pilihan A</label><input className="form-control" {...register('pilihan_a')} /></div><div className="col-md-6"><label className="form-label">Pilihan B</label><input className="form-control" {...register('pilihan_b')} /></div><div className="col-md-6"><label className="form-label">Pilihan C</label><input className="form-control" {...register('pilihan_c')} /></div><div className="col-md-6"><label className="form-label">Pilihan D</label><input className="form-control" {...register('pilihan_d')} /></div>
+              <div className="col-12"><label className="form-label">Jawaban Benar</label><select className="form-select" {...register('jawaban_benar_letter', { required: true })}><option value="">Pilih jawaban benar</option><option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option></select></div></>}
+            {jenis !== 'pilihan_ganda' && <div className="col-12"><label className="form-label">Jawaban Benar (kata kunci / referensi)</label><input className="form-control" {...register('jawaban_benar_letter')} /></div>}
             <div className="col-12"><label className="form-label">Pembahasan</label><textarea className="form-control" rows="2" {...register('pembahasan')} /></div>
             <div className="col-12 d-flex justify-content-end gap-2"><button type="button" className="btn btn-outline-secondary" onClick={() => setShowForm(false)}>Batal</button><button className="btn btn-primary">Simpan Soal</button></div>
           </div></form>
