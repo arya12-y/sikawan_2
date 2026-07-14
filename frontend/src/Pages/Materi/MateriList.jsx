@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import api from '../../api/axios'
 import { useAuth } from '../../hooks/useAuth'
+import { confirmDelete } from '../../utils/confirm'
 
 const jenisConfig = {
   video: { title: 'Video Pembelajaran', icon: 'bi-play-circle-fill', gradient: 'linear-gradient(135deg, #2563eb, #06b6d4)', accept: 'video/*', viewLabel: 'Tonton', viewIcon: 'bi-play-btn' },
@@ -36,7 +37,15 @@ function MateriList({ jenis }) {
   const [editing, setEditing] = useState(null)
   const [viewing, setViewing] = useState(null)
   const [thumbnailPreview, setThumbnailPreview] = useState(null)
+  const [saving, setSaving] = useState(false)
+  const [notif, setNotif] = useState(null)
   const { register, handleSubmit, reset, formState: { errors } } = useForm()
+
+  useEffect(() => {
+    if (!notif) return
+    const t = setTimeout(() => setNotif(null), 4000)
+    return () => clearTimeout(t)
+  }, [notif])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -107,6 +116,7 @@ function MateriList({ jenis }) {
   }, [showForm, editing, reset])
 
   const onSubmit = async (data) => {
+    setSaving(true)
     try {
       const formData = new FormData()
       formData.append('jenis', jenis)
@@ -127,16 +137,19 @@ function MateriList({ jenis }) {
       } else {
         await api.post('/materis', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
       }
+      setSaving(false)
       setShowForm(false)
+      setNotif({ type: 'success', text: `Berhasil menyimpan ${config.title}` })
       load()
     } catch (e) {
-      const message = e.response?.data?.message || e.response?.data?.errors?.[Object.keys(e.response?.data?.errors || {})[0]]?.[0] || e.message || 'Gagal menyimpan data'
-      alert('Gagal menyimpan: ' + message)
+      setSaving(false)
+      const message = e.response?.data?.message || e.response?.data?.errors?.[Object.keys(e.response?.data?.errors || {})[0]]?.[0] || e.message || 'Gagal menyimpan'
+      setNotif({ type: 'danger', text: 'Gagal: ' + message })
     }
   }
 
   const remove = async (row) => {
-    if (!confirm(`Hapus "${row.judul}"?`)) return
+    if (!await confirmDelete(row.judul)) return
     try {
       await api.delete(`/materis/${row.id}`)
       load()
@@ -145,14 +158,23 @@ function MateriList({ jenis }) {
     }
   }
 
-  const openFile = (row) => {
-    if (row.file_path) {
-      window.open(FILE_URL + '/api/materi/' + row.id + '/file', '_blank')
-    }
+  const downloadFile = (row) => {
+    if (!row.file_path) return
+    const link = document.createElement('a')
+    link.href = FILE_URL + '/api/materi/' + row.id + '/download'
+    link.download = ''
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
   }
 
   return (
     <div>
+      {notif && <div className={`alert alert-${notif.type === 'success' ? 'success' : 'danger'} alert-dismissible fade show d-flex align-items-center gap-2 py-2 px-3 mb-3`} role="alert" style={{ borderRadius: 12, fontSize: '0.9rem' }}>
+        <i className={`bi ${notif.type === 'success' ? 'bi-check-circle-fill' : 'bi-exclamation-triangle-fill'}`}></i>
+        <span>{notif.text}</span>
+        <button type="button" className="btn-close ms-auto" style={{ fontSize: '0.75rem' }} onClick={() => setNotif(null)}></button>
+      </div>}
       <div className="d-flex align-items-center mb-4">
         <button className="btn btn-outline-secondary btn-sm me-3" onClick={() => navigate('/pembelajaran')}>
           <i className="bi bi-arrow-left me-1"></i>Kembali
@@ -189,14 +211,17 @@ function MateriList({ jenis }) {
                 <iframe src={FILE_URL + '/api/materi/' + viewing.id + '/file'} title={viewing.judul} style={{ width: '100%', height: 600, border: 'none' }}></iframe>
               </div>
             ) : viewing.file_path ? (
-              <div className="ratio" style={{ minHeight: 500 }}>
-                <iframe src={'https://view.officeapps.live.com/op/view.aspx?src=' + encodeURIComponent(FILE_URL + '/api/materi/' + viewing.id + '/file')} title={viewing.judul} style={{ width: '100%', height: 500, border: 'none' }}></iframe>
+              <div className="text-center py-5">
+                <i className="bi bi-file-earmark-arrow-down d-block mb-3" style={{ fontSize: '3.5rem', color: '#6366f1' }}></i>
+                <h6 className="fw-bold">{viewing.judul}</h6>
+                <p className="text-muted small mb-3">File tidak dapat ditampilkan langsung di browser. Silakan download untuk membuka.</p>
+                <button className="btn btn-primary px-4" onClick={() => downloadFile(viewing)}><i className="bi bi-download me-2"></i>Download File</button>
               </div>
             ) : (
               <div className="text-center py-4 text-muted">
                 <i className="bi bi-exclamation-circle d-block mb-2" style={{ fontSize: '2rem' }}></i>
                 File belum tersedia.
-                {viewing.file_path && <div className="mt-2"><button className="btn btn-sm btn-primary" onClick={() => openFile(viewing)}>Download File</button></div>}
+                {viewing.file_path && <div className="mt-2"><button className="btn btn-sm btn-primary" onClick={() => downloadFile(viewing)}>Download File</button></div>}
               </div>
             )}
             {viewing.deskripsi && <p className="text-muted mt-3 mb-0">{viewing.deskripsi}</p>}
@@ -253,7 +278,7 @@ function MateriList({ jenis }) {
                         <i className={`bi ${config.viewIcon} me-1`}></i>{config.viewLabel}
                       </button>
                       {row.file_path && (
-                        <button className="btn btn-sm btn-outline-primary" onClick={() => openFile(row)}>
+                        <button className="btn btn-sm btn-outline-primary" onClick={() => downloadFile(row)}>
                           <i className="bi bi-download"></i>
                         </button>
                       )}
@@ -349,7 +374,7 @@ function MateriList({ jenis }) {
                   </div>
                 <div className="d-flex justify-content-end gap-2 mt-4">
                   <button type="button" className="btn btn-outline-secondary" onClick={() => setShowForm(false)}>Batal</button>
-                  <button type="submit" className="btn btn-primary">Simpan</button>
+                  <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? <><span className="spinner-border spinner-border-sm me-2" role="status"></span>Menyimpan...</> : 'Simpan'}</button>
                 </div>
               </form>
           </div>

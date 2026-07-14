@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import api from '../../../api/axios'
+import { confirmDelete } from '../../../utils/confirm'
 
 const normalize = (payload) => Array.isArray(payload?.data) ? payload.data : (Array.isArray(payload) ? payload : [])
 
@@ -40,7 +41,7 @@ function Bidang() {
   }
 
   const remove = async (row) => {
-    if (!confirm('Hapus bidang?')) return
+    if (!await confirmDelete(row.nama || 'Bidang')) return
     try { await api.delete(`/bidangs/${row.id}`); load() } catch (e) { alert(e.response?.data?.message || 'Gagal menghapus') }
   }
 

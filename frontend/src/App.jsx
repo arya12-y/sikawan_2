@@ -52,7 +52,7 @@ const baseFields = [
 ]
 
 const routes = [
-  { path: 'opd', element: <GenericMasterPage title="OPD" endpoint="/opds" fields={[{ name: 'kode', label: 'Kode', required: true }, { name: 'nama', label: 'Nama OPD', required: true }, { name: 'singkatan', label: 'Singkatan' }, { name: 'email', label: 'Email', type: 'email' }]} /> },
+  { path: 'opd', element: <GenericMasterPage title="OPD" endpoint="/opds" fields={[{ name: 'kode', label: 'Kode', required: true, maxLength: 20 }, { name: 'nama', label: 'Nama OPD', required: true, maxLength: 255 }, { name: 'singkatan', label: 'Singkatan', maxLength: 50 }, { name: 'email', label: 'Email', type: 'email', maxLength: 255 }]} /> },
   { path: 'bidang', element: <BidangPage /> },
   { path: 'jabatan', element: <GenericMasterPage title="Jabatan" endpoint="/jabatans" fields={[...baseFields, { name: 'level', label: 'Level', type: 'number' }]} /> },
   { path: 'kompetensi', element: <GenericMasterPage title="Kompetensi" endpoint="/kompetensis" fields={[{ name: 'kode', label: 'Kode', required: true }, { name: 'nama', label: 'Nama', required: true }, { name: 'domain', label: 'Domain' }, { name: 'deskripsi', label: 'Deskripsi' }]} /> },

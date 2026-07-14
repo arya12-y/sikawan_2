@@ -99,19 +99,36 @@ class MateriController extends CrudController
     public function serveFile($id)
     {
         $materi = Materi::findOrFail($id);
-        if (!$materi->file_path) abort(404, 'File tidak ditemukan');
-        $path = Storage::disk('public')->path($materi->file_path);
-        if (!file_exists($path)) abort(404, 'File tidak ditemukan');
+        if (!$materi->file_path || !Storage::disk('public')->exists($materi->file_path)) {
+            return response()->json(['error' => 'File tidak ditemukan'], 404);
+        }
 
-        return response()->file($path);
+        return response()->file(Storage::disk('public')->path($materi->file_path));
+    }
+
+    public function downloadFile($id)
+    {
+        $materi = Materi::findOrFail($id);
+        if (!$materi->file_path || !Storage::disk('public')->exists($materi->file_path)) {
+            return response()->json(['error' => 'File tidak ditemukan'], 404);
+        }
+
+        $extension = pathinfo($materi->file_path, PATHINFO_EXTENSION);
+        $filename = str($materi->judul)->slug()->append($extension ? '.' . $extension : '')->value();
+
+        return Storage::disk('public')->download($materi->file_path, $filename);
     }
 
     public function serveThumbnail($id)
     {
         $materi = Materi::findOrFail($id);
-        if (!$materi->thumbnail) abort(404, 'Thumbnail tidak ditemukan');
+        if (!$materi->thumbnail) {
+            return response()->json(['error' => 'Thumbnail tidak ditemukan di database'], 404);
+        }
         $path = Storage::disk('public')->path($materi->thumbnail);
-        if (!file_exists($path)) abort(404, 'Thumbnail tidak ditemukan');
+        if (!file_exists($path)) {
+            return response()->json(['error' => 'Thumbnail fisik tidak ditemukan di server'], 404);
+        }
 
         return response()->file($path);
     }

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import api from '../../api/axios'
 import { useAuth } from '../../hooks/useAuth'
+import { confirmAction } from '../../utils/confirm'
 
 const roles = ['Super Admin', 'Admin Diskominfo', 'Penguji', 'Walidata', 'Pimpinan']
 const normalize = (payload) => Array.isArray(payload?.data) ? payload.data : (Array.isArray(payload) ? payload : [])
@@ -28,8 +29,14 @@ function Users() {
   const update = async (user, data) => {
     try { await api.patch(`/users/${user.id}`, data); load() } catch (e) { alert(e.response?.data?.message || 'Gagal') }
   }
-  const updateRole = (user, role) => { if (role !== getRole(user) && confirm(`Ubah role ${user.name} menjadi ${role}?`)) update(user, { roles: [role] }) }
-  const toggleActive = (user) => { const isActive = !user.is_active; if (confirm(`${isActive ? 'Aktifkan' : 'Nonaktifkan'} ${user.name}?`)) update(user, { is_active: isActive }) }
+  const updateRole = async (user, role) => {
+    if (role === getRole(user)) return
+    if (await confirmAction({ title: 'Ubah role pengguna?', text: `Role ${user.name} akan diubah menjadi ${role}.`, confirmButtonText: 'Ya, ubah', icon: 'question' })) update(user, { roles: [role] })
+  }
+  const toggleActive = async (user) => {
+    const isActive = !user.is_active
+    if (await confirmAction({ title: `${isActive ? 'Aktifkan' : 'Nonaktifkan'} pengguna?`, text: `${user.name} akan ${isActive ? 'dapat' : 'tidak dapat'} mengakses sistem.`, confirmButtonText: isActive ? 'Ya, aktifkan' : 'Ya, nonaktifkan', icon: isActive ? 'question' : 'warning' })) update(user, { is_active: isActive })
+  }
   const openCreate = () => { reset({ name: '', email: '', password: '', nip: '', phone: '', role: 'Admin Diskominfo', is_active: 1 }); setShowForm(true) }
 
   const createUser = async (data) => {

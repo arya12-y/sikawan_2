@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import api from '../../../api/axios'
+import { confirmDelete } from '../../../utils/confirm'
 
 const normalize = (payload) => Array.isArray(payload?.data) ? payload.data : (Array.isArray(payload) ? payload : [])
 
@@ -42,7 +43,7 @@ function Penguji() {
   }
 
   const remove = async (row) => {
-    if (!confirm('Hapus penguji?')) return
+    if (!await confirmDelete(row.user?.name || getUserName(row.user_id) || 'Penguji')) return
     try { await api.delete(`/pengujis/${row.id}`); load() } catch (e) { alert(e.response?.data?.message || 'Gagal menghapus') }
   }
 

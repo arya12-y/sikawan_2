@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import api from '../../api/axios'
+import { confirmAction, confirmDelete } from '../../utils/confirm'
 import { useAuth } from '../../hooks/useAuth'
 
 const normalize = (payload) => Array.isArray(payload?.data) ? payload.data : (Array.isArray(payload) ? payload : [])
@@ -36,7 +37,7 @@ function Asesmen() {
   }, [load])
 
   const submitExam = useCallback(async (auto = false) => {
-    if (!auto && !confirm('Submit asesmen sekarang?')) return
+    if (!auto && !await confirmAction({ title: 'Kumpulkan asesmen?', text: 'Jawaban yang sudah dikirim tidak dapat diubah lagi.', confirmButtonText: 'Ya, kumpulkan', icon: 'question' })) return
     try {
       const res = await api.post(`/peserta-asesmens/${peserta.id}/submit`)
       const review = await api.get(`/peserta-asesmens/${res.data.id}/review`)
@@ -104,7 +105,7 @@ function Asesmen() {
   }
 
   const remove = async (row) => {
-    if (!confirm(`Hapus asesmen "${row.judul}"?`)) return
+    if (!await confirmDelete(row.judul)) return
     await api.delete(`/asesmens/${row.id}`)
     load()
   }

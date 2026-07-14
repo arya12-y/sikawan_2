@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import api from '../../api/axios'
+import { confirmDelete } from '../../utils/confirm'
 
 const normalizeRows = (payload) => {
   const rows = payload?.data ?? payload
@@ -20,7 +21,7 @@ const normalizeValue = (field, value) => {
 }
 
 function FormModal({ title, fields, current, onSubmit, onCancel }) {
-  const { register, handleSubmit, reset } = useForm()
+  const { register, handleSubmit, reset, formState: { errors } } = useForm()
   useEffect(() => reset(current || {}), [current, reset])
 
   const submit = (data) => {
@@ -28,7 +29,7 @@ function FormModal({ title, fields, current, onSubmit, onCancel }) {
     return onSubmit(normalized)
   }
 
-  return <div className="card shadow-sm border-0 mt-4"><div className="card-body p-4"><form onSubmit={handleSubmit(submit)}><div className="d-flex justify-content-between align-items-center mb-4"><h5 className="fw-bold mb-0">{title}</h5><button type="button" className="btn btn-outline-secondary btn-sm" onClick={onCancel}><i className="bi bi-arrow-left me-1"></i>Kembali</button></div><div className="row g-3">{fields.map((f) => <div className="col-md-6" key={f.name}><label className="form-label">{f.label}</label>{f.type === 'select' ? <select className="form-select" {...register(f.name, { required: f.required })}>{(f.options || []).map((o) => <option key={o.value ?? o} value={o.value ?? o}>{o.label ?? o}</option>)}</select> : f.type === 'checkbox' ? <div className="form-check"><input className="form-check-input" type="checkbox" {...register(f.name)} /><label className="form-check-label">Ya</label></div> : <input className="form-control" type={f.type || 'text'} {...register(f.name, { required: f.required })} />}</div>)}</div><div className="d-flex justify-content-end gap-2 mt-4"><button type="button" className="btn btn-outline-secondary" onClick={onCancel}>Batal</button><button className="btn btn-primary">Simpan</button></div></form></div></div>
+  return <div className="card shadow-sm border-0 mt-4"><div className="card-body p-4"><form noValidate onSubmit={handleSubmit(submit)}><div className="d-flex justify-content-between align-items-center mb-4"><h5 className="fw-bold mb-0">{title}</h5><button type="button" className="btn btn-outline-secondary btn-sm" onClick={onCancel}><i className="bi bi-arrow-left me-1"></i>Kembali</button></div><div className="row g-3">{fields.map((f) => <div className="col-md-6" key={f.name}><label className="form-label">{f.label}{f.required && <span className="text-danger ms-1">*</span>}</label>{f.type === 'select' ? <select className="form-select" {...register(f.name, { required: f.required })}>{(f.options || []).map((o) => <option key={o.value ?? o} value={o.value ?? o}>{o.label ?? o}</option>)}</select> : f.type === 'checkbox' ? <div className="form-check"><input className="form-check-input" type="checkbox" {...register(f.name)} /><label className="form-check-label">Ya</label></div> : <input className="form-control" type={f.type || 'text'} maxLength={f.maxLength} {...register(f.name, { required: f.required, maxLength: f.maxLength })} />}{errors[f.name] && <small className="text-danger">{errors[f.name].type === 'maxLength' ? `Maksimal ${f.maxLength} karakter` : `${f.label} wajib diisi`}</small>}</div>)}</div><div className="d-flex justify-content-end gap-2 mt-4"><button type="button" className="btn btn-outline-secondary" onClick={onCancel}>Batal</button><button className="btn btn-primary">Simpan</button></div></form></div></div>
 }
 
 function DataTable({ fields, rows, onEdit, onDelete }) {
@@ -80,18 +81,19 @@ function GenericMasterPage({ endpoint, fields, title, filters = [] }) {
       setShowForm(false)
       load()
     } catch (error) {
-      alert(error.response?.data?.message || `Gagal menyimpan ${title}`)
+      const validationErrors = error.response?.data?.errors
+      const message = validationErrors ? Object.values(validationErrors).flat().join('\n') : error.response?.data?.message
+      alert(message || `Gagal menyimpan ${title}`)
     }
   }
 
   const remove = async (row) => {
-    if (confirm(`Hapus ${title}?`)) {
-      try {
-        await api.delete(`${endpoint}/${row.id}`)
-        load()
-      } catch (error) {
-        alert(error.response?.data?.message || `Gagal menghapus ${title}`)
-      }
+    if (!await confirmDelete(row.nama || row.kode || title)) return
+    try {
+      await api.delete(`${endpoint}/${row.id}`)
+      load()
+    } catch (error) {
+      alert(error.response?.data?.message || `Gagal menghapus ${title}`)
     }
   }
 
