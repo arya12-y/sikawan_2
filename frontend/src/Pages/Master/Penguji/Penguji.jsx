@@ -13,6 +13,7 @@ function Penguji() {
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState(null)
+  const [saving, setSaving] = useState(false)
   const { register, handleSubmit, reset } = useForm()
 
   const load = useCallback(async () => {
@@ -35,11 +36,12 @@ function Penguji() {
   const openEdit = (row) => { setEditing(row); reset({ user_id: row.user_id || '', nip: row.nip || '', bidang_keahlian: row.bidang_keahlian || '', bio: row.bio || '', is_active: row.is_active ? 1 : 0 }); setShowForm(true) }
 
   const save = async (data) => {
+    setSaving(true)
     const payload = { user_id: Number(data.user_id), nip: data.nip || null, bidang_keahlian: data.bidang_keahlian || null, bio: data.bio || null, is_active: Number(data.is_active) === 1 }
     try {
       if (editing?.id) await api.put(`/pengujis/${editing.id}`, payload); else await api.post('/pengujis', payload)
       setShowForm(false); load()
-    } catch (e) { alert(e.response?.data?.message || 'Gagal menyimpan') }
+    } catch (e) { alert(e.response?.data?.message || 'Gagal menyimpan') } finally { setSaving(false) }
   }
 
   const remove = async (row) => {
@@ -85,7 +87,7 @@ function Penguji() {
           <div className="col-md-6"><label className="form-label fw-semibold">Status</label><select className="form-select" {...register('is_active')}><option value={1}>Aktif</option><option value={0}>Nonaktif</option></select></div>
           <div className="col-12"><label className="form-label fw-semibold">Bio</label><textarea className="form-control" rows="3" {...register('bio')}></textarea></div>
         </div>
-        <div className="d-flex justify-content-end gap-2 mt-4"><button type="button" className="btn btn-outline-secondary" onClick={() => setShowForm(false)}>Batal</button><button className="btn btn-primary">Simpan</button></div>
+        <div className="d-flex justify-content-end gap-2 mt-4"><button type="button" className="btn btn-outline-secondary" onClick={() => setShowForm(false)}>Batal</button><button className="btn btn-primary" disabled={saving}>{saving ? <><span className="spinner-border spinner-border-sm me-1" role="status"></span>Menyimpan...</> : 'Simpan'}</button></div>
       </form></div></div>}
     </div>
   )

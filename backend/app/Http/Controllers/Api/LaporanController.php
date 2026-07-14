@@ -71,7 +71,7 @@ class LaporanController extends Controller
                 'referensi' => $item->nomor_sertifikat,
                 'nilai' => (int) $item->nilai_akhir,
                 'status' => $item->is_active ? 'Aktif' : 'Tidak Aktif',
-                'tanggal' => $item->tanggal_terbit?->format('Y-m-d') ?? '-',
+                'tanggal' => $item->tanggal_terbit ? (method_exists($item->tanggal_terbit, 'format') ? $item->tanggal_terbit->format('Y-m-d') : \Illuminate\Support\Carbon::parse($item->tanggal_terbit)->format('Y-m-d')) : '-',
             ])->all();
         }
 
@@ -80,7 +80,7 @@ class LaporanController extends Controller
             'referensi' => $item->asesmen?->judul ?? '-',
             'nilai' => (int) ($item->nilai ?? 0),
             'status' => $item->lulus ? 'Lulus' : ($item->status === 'selesai' ? 'Tidak Lulus' : $item->status),
-            'tanggal' => $item->waktu_selesai?->format('Y-m-d') ?? $item->created_at?->format('Y-m-d') ?? '-',
+            'tanggal' => $item->waktu_selesai ? (method_exists($item->waktu_selesai, 'format') ? $item->waktu_selesai->format('Y-m-d') : \Illuminate\Support\Carbon::parse($item->waktu_selesai)->format('Y-m-d')) : ($item->created_at ? (method_exists($item->created_at, 'format') ? $item->created_at->format('Y-m-d') : \Illuminate\Support\Carbon::parse($item->created_at)->format('Y-m-d')) : '-'),
         ])->all();
     }
 }

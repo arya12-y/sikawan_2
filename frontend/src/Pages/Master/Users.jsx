@@ -15,6 +15,7 @@ function Users() {
   const [rows, setRows] = useState([])
   const [search, setSearch] = useState('')
   const [showForm, setShowForm] = useState(false)
+  const [saving, setSaving] = useState(false)
   const { register, handleSubmit, reset } = useForm()
 
   const load = useCallback(async () => {
@@ -40,10 +41,11 @@ function Users() {
   const openCreate = () => { reset({ name: '', email: '', password: '', nip: '', phone: '', role: 'Admin Diskominfo', is_active: 1 }); setShowForm(true) }
 
   const createUser = async (data) => {
+    setSaving(true)
     try {
       await api.post('/users', { ...data, roles: [data.role], is_active: Number(data.is_active) === 1 })
       setShowForm(false); load()
-    } catch (e) { const m = e.response?.data?.errors ? Object.values(e.response.data.errors).flat().join('\n') : e.response?.data?.message; alert(m || 'Gagal') }
+    } catch (e) { const m = e.response?.data?.errors ? Object.values(e.response.data.errors).flat().join('\n') : e.response?.data?.message; alert(m || 'Gagal') } finally { setSaving(false) }
   }
 
   return (
@@ -81,7 +83,7 @@ function Users() {
           <div className="col-md-6"><label className="form-label fw-semibold">Role</label><select className="form-select" {...register('role')}>{roles.map((role) => <option key={role}>{role}</option>)}</select></div>
           <div className="col-md-6"><label className="form-label fw-semibold">Status Akun</label><select className="form-select" {...register('is_active')}><option value={1}>Aktif</option><option value={0}>Menunggu Verifikasi</option></select></div>
         </div>
-        <div className="d-flex justify-content-end gap-2 mt-4"><button type="button" className="btn btn-outline-secondary" onClick={() => setShowForm(false)}>Batal</button><button className="btn btn-primary">Buat Akun</button></div>
+        <div className="d-flex justify-content-end gap-2 mt-4"><button type="button" className="btn btn-outline-secondary" onClick={() => setShowForm(false)}>Batal</button><button className="btn btn-primary" disabled={saving}>{saving ? <><span className="spinner-border spinner-border-sm me-1" role="status"></span>Menyimpan...</> : 'Buat Akun'}</button></div>
       </form></div></div>}
     </div>
   )

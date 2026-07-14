@@ -17,6 +17,7 @@ function WalidataPage() {
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState(null)
+  const [saving, setSaving] = useState(false)
   const { register, handleSubmit, reset } = useForm()
 
   const load = useCallback(async () => {
@@ -40,11 +41,12 @@ function WalidataPage() {
   const openEdit = (row) => { setEditing(row); reset({ user_id: row.user_id || '', opd_id: row.opd_id || '', bidang_id: row.bidang_id || '', jabatan_id: row.jabatan_id || '', level_id: row.level_id || '', nip: row.nip || '', nilai_kompetensi: row.nilai_kompetensi || 0, is_active: row.is_active ? 1 : 0 }); setShowForm(true) }
 
   const save = async (data) => {
+    setSaving(true)
     const payload = { user_id: Number(data.user_id), opd_id: Number(data.opd_id), bidang_id: data.bidang_id ? Number(data.bidang_id) : null, jabatan_id: data.jabatan_id ? Number(data.jabatan_id) : null, level_id: data.level_id ? Number(data.level_id) : null, nip: data.nip || null, nilai_kompetensi: Number(data.nilai_kompetensi || 0), is_active: Number(data.is_active) === 1 }
     try {
       if (editing?.id) await api.put(`/walidatas/${editing.id}`, payload); else await api.post('/walidatas', payload)
       setShowForm(false); load()
-    } catch (e) { alert(e.response?.data?.message || 'Gagal menyimpan') }
+    } catch (e) { alert(e.response?.data?.message || 'Gagal menyimpan') } finally { setSaving(false) }
   }
 
   const remove = async (row) => {
@@ -97,7 +99,7 @@ function WalidataPage() {
           <div className="col-md-6"><label className="form-label fw-semibold">Nilai Kompetensi</label><input className="form-control" type="number" step="0.01" {...register('nilai_kompetensi')} /></div>
           <div className="col-md-6"><label className="form-label fw-semibold">Status</label><select className="form-select" {...register('is_active')}><option value={1}>Aktif</option><option value={0}>Nonaktif</option></select></div>
         </div>
-        <div className="d-flex justify-content-end gap-2 mt-4"><button type="button" className="btn btn-outline-secondary" onClick={() => setShowForm(false)}>Batal</button><button className="btn btn-primary">Simpan</button></div>
+        <div className="d-flex justify-content-end gap-2 mt-4"><button type="button" className="btn btn-outline-secondary" onClick={() => setShowForm(false)}>Batal</button><button className="btn btn-primary" disabled={saving}>{saving ? <><span className="spinner-border spinner-border-sm me-1" role="status"></span>Menyimpan...</> : 'Simpan'}</button></div>
       </form></div></div>}
     </div>
   )

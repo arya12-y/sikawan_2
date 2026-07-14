@@ -17,6 +17,7 @@ function Asesmen() {
   const [answers, setAnswers] = useState({})
   const [secondsLeft, setSecondsLeft] = useState(0)
   const [loading, setLoading] = useState(false)
+  const [saving, setSaving] = useState(false)
   const { user } = useAuth()
   const { register, handleSubmit, reset } = useForm()
   const roles = Array.isArray(user?.roles) ? user.roles : []
@@ -85,6 +86,7 @@ function Asesmen() {
   }
 
   const save = async (data) => {
+    setSaving(true)
     const payload = {
       ...data,
       jumlah_soal: Number(data.jumlah_soal || 0),
@@ -101,7 +103,7 @@ function Asesmen() {
       setActiveTab('list')
     } catch (e) {
       alert(e.response?.data?.message || 'Gagal menyimpan asesmen')
-    }
+    } finally { setSaving(false) }
   }
 
   const remove = async (row) => {
@@ -199,7 +201,7 @@ function Asesmen() {
           <div className="col-md-4"><label className="form-label">Nilai Lulus</label><input type="number" className="form-control" {...register('nilai_lulus', { required: true })} /></div>
           <div className="col-md-6"><label className="form-label">Random Soal</label><select className="form-select" {...register('acak_soal')}><option value={1}>Ya</option><option value={0}>Tidak</option></select></div>
           <div className="col-md-6"><label className="form-label">Random Jawaban</label><select className="form-select" {...register('acak_jawaban')}><option value={1}>Ya</option><option value={0}>Tidak</option></select></div>
-          <div className="col-12 text-end"><button className="btn btn-primary">Simpan</button></div>
+          <div className="col-12 text-end"><button className="btn btn-primary" disabled={saving}>{saving ? <><span className="spinner-border spinner-border-sm me-1" role="status"></span>Menyimpan...</> : 'Simpan'}</button></div>
         </form></div></div>
       )}
 

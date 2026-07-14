@@ -13,6 +13,7 @@ function Bidang() {
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState(null)
+  const [saving, setSaving] = useState(false)
   const { register, handleSubmit, reset } = useForm()
 
   const load = useCallback(async () => {
@@ -33,11 +34,12 @@ function Bidang() {
   const openEdit = (row) => { setEditing(row); reset({ opd_id: row.opd_id || '', nama: row.nama || '', deskripsi: row.deskripsi || '', is_active: row.is_active ? 1 : 0 }); setShowForm(true) }
 
   const save = async (data) => {
+    setSaving(true)
     const payload = { opd_id: Number(data.opd_id), nama: data.nama, deskripsi: data.deskripsi || null, is_active: Number(data.is_active) === 1 }
     try {
       if (editing?.id) await api.put(`/bidangs/${editing.id}`, payload); else await api.post('/bidangs', payload)
       setShowForm(false); load()
-    } catch (e) { alert(e.response?.data?.message || 'Gagal menyimpan') }
+    } catch (e) { alert(e.response?.data?.message || 'Gagal menyimpan') } finally { setSaving(false) }
   }
 
   const remove = async (row) => {
@@ -79,7 +81,7 @@ function Bidang() {
           <div className="col-12"><label className="form-label fw-semibold">Deskripsi</label><textarea className="form-control" rows="2" {...register('deskripsi')}></textarea></div>
           <div className="col-12"><label className="form-label fw-semibold">Status</label><select className="form-select" {...register('is_active')}><option value={1}>Aktif</option><option value={0}>Nonaktif</option></select></div>
         </div>
-        <div className="d-flex justify-content-end gap-2 mt-4"><button type="button" className="btn btn-outline-secondary" onClick={() => setShowForm(false)}>Batal</button><button className="btn btn-primary">Simpan</button></div>
+        <div className="d-flex justify-content-end gap-2 mt-4"><button type="button" className="btn btn-outline-secondary" onClick={() => setShowForm(false)}>Batal</button><button className="btn btn-primary" disabled={saving}>{saving ? <><span className="spinner-border spinner-border-sm me-1" role="status"></span>Menyimpan...</> : 'Simpan'}</button></div>
       </form></div></div>}
     </div>
   )

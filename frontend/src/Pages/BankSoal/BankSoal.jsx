@@ -14,6 +14,7 @@ function BankSoal() {
   const [editing, setEditing] = useState(null)
   const [showForm, setShowForm] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
   const { register, handleSubmit, reset, watch } = useForm()
   const jenis = watch('jenis')
 
@@ -83,6 +84,7 @@ function BankSoal() {
   }
 
   const save = async (data) => {
+    setSaving(true)
     const pilihan = [data.pilihan_a, data.pilihan_b, data.pilihan_c, data.pilihan_d].filter(Boolean)
     const letterMap = { A: 0, B: 1, C: 2, D: 3 }
     const jawabanBenar = data.jenis === 'pilihan_ganda' && data.jawaban_benar_letter
@@ -107,7 +109,7 @@ function BankSoal() {
       load()
     } catch (e) {
       alert(e.response?.data?.message || 'Gagal menyimpan soal')
-    }
+    } finally { setSaving(false) }
   }
 
   const remove = async (row) => {
@@ -199,7 +201,7 @@ function BankSoal() {
               <div className="col-12"><label className="form-label">Jawaban Benar</label><select className="form-select" {...register('jawaban_benar_letter', { required: true })}><option value="">Pilih jawaban benar</option><option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option></select></div></>}
             {jenis !== 'pilihan_ganda' && <div className="col-12"><label className="form-label">Jawaban Benar (kata kunci / referensi)</label><input className="form-control" {...register('jawaban_benar_letter')} /></div>}
             <div className="col-12"><label className="form-label">Pembahasan</label><textarea className="form-control" rows="2" {...register('pembahasan')} /></div>
-            <div className="col-12 d-flex justify-content-end gap-2"><button type="button" className="btn btn-outline-secondary" onClick={() => setShowForm(false)}>Batal</button><button className="btn btn-primary">Simpan Soal</button></div>
+            <div className="col-12 d-flex justify-content-end gap-2"><button type="button" className="btn btn-outline-secondary" onClick={() => setShowForm(false)}>Batal</button><button className="btn btn-primary" disabled={saving}>{saving ? <><span className="spinner-border spinner-border-sm me-1" role="status"></span>Menyimpan...</> : 'Simpan Soal'}</button></div>
           </div></form>
         </div>
       </div>}

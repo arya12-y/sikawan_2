@@ -20,7 +20,7 @@ const normalizeValue = (field, value) => {
   return value
 }
 
-function FormModal({ title, fields, current, onSubmit, onCancel }) {
+function FormModal({ title, fields, current, onSubmit, onCancel, saving }) {
   const { register, handleSubmit, reset, formState: { errors } } = useForm()
   useEffect(() => reset(current || {}), [current, reset])
 
@@ -29,7 +29,7 @@ function FormModal({ title, fields, current, onSubmit, onCancel }) {
     return onSubmit(normalized)
   }
 
-  return <div className="card shadow-sm border-0 mt-4"><div className="card-body p-4"><form noValidate onSubmit={handleSubmit(submit)}><div className="d-flex justify-content-between align-items-center mb-4"><h5 className="fw-bold mb-0">{title}</h5><button type="button" className="btn btn-outline-secondary btn-sm" onClick={onCancel}><i className="bi bi-arrow-left me-1"></i>Kembali</button></div><div className="row g-3">{fields.map((f) => <div className="col-md-6" key={f.name}><label className="form-label">{f.label}{f.required && <span className="text-danger ms-1">*</span>}</label>{f.type === 'select' ? <select className="form-select" {...register(f.name, { required: f.required })}>{(f.options || []).map((o) => <option key={o.value ?? o} value={o.value ?? o}>{o.label ?? o}</option>)}</select> : f.type === 'checkbox' ? <div className="form-check"><input className="form-check-input" type="checkbox" {...register(f.name)} /><label className="form-check-label">Ya</label></div> : <input className="form-control" type={f.type || 'text'} maxLength={f.maxLength} {...register(f.name, { required: f.required, maxLength: f.maxLength })} />}{errors[f.name] && <small className="text-danger">{errors[f.name].type === 'maxLength' ? `Maksimal ${f.maxLength} karakter` : `${f.label} wajib diisi`}</small>}</div>)}</div><div className="d-flex justify-content-end gap-2 mt-4"><button type="button" className="btn btn-outline-secondary" onClick={onCancel}>Batal</button><button className="btn btn-primary">Simpan</button></div></form></div></div>
+  return <div className="card shadow-sm border-0 mt-4"><div className="card-body p-4"><form noValidate onSubmit={handleSubmit(submit)}><div className="d-flex justify-content-between align-items-center mb-4"><h5 className="fw-bold mb-0">{title}</h5><button type="button" className="btn btn-outline-secondary btn-sm" onClick={onCancel}><i className="bi bi-arrow-left me-1"></i>Kembali</button></div><div className="row g-3">{fields.map((f) => <div className="col-md-6" key={f.name}><label className="form-label">{f.label}{f.required && <span className="text-danger ms-1">*</span>}</label>{f.type === 'select' ? <select className="form-select" {...register(f.name, { required: f.required })}>{(f.options || []).map((o) => <option key={o.value ?? o} value={o.value ?? o}>{o.label ?? o}</option>)}</select> : f.type === 'checkbox' ? <div className="form-check"><input className="form-check-input" type="checkbox" {...register(f.name)} /><label className="form-check-label">Ya</label></div> : <input className="form-control" type={f.type || 'text'} maxLength={f.maxLength} {...register(f.name, { required: f.required, maxLength: f.maxLength })} />}{errors[f.name] && <small className="text-danger">{errors[f.name].type === 'maxLength' ? `Maksimal ${f.maxLength} karakter` : `${f.label} wajib diisi`}</small>}</div>)}</div><div className="d-flex justify-content-end gap-2 mt-4"><button type="button" className="btn btn-outline-secondary" onClick={onCancel}>Batal</button><button className="btn btn-primary" disabled={saving}>{saving ? <><span className="spinner-border spinner-border-sm me-1" role="status"></span>Menyimpan...</> : 'Simpan'}</button></div></form></div></div>
 }
 
 function DataTable({ fields, rows, onEdit, onDelete }) {
@@ -42,6 +42,7 @@ function GenericMasterPage({ endpoint, fields, title, filters = [] }) {
   const [filter, setFilter] = useState('')
   const [current, setCurrent] = useState(null)
   const [showForm, setShowForm] = useState(false)
+  const [saving, setSaving] = useState(false)
   const modalTitle = useMemo(() => `${current?.id ? 'Edit' : 'Tambah'} ${title}`, [current, title])
 
   const openCreate = () => {
@@ -74,6 +75,7 @@ function GenericMasterPage({ endpoint, fields, title, filters = [] }) {
   }, [endpoint, title])
 
   const save = async (data) => {
+    setSaving(true)
     try {
       if (current?.id) await api.put(`${endpoint}/${current.id}`, data)
       else await api.post(endpoint, data)
@@ -84,6 +86,8 @@ function GenericMasterPage({ endpoint, fields, title, filters = [] }) {
       const validationErrors = error.response?.data?.errors
       const message = validationErrors ? Object.values(validationErrors).flat().join('\n') : error.response?.data?.message
       alert(message || `Gagal menyimpan ${title}`)
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -134,7 +138,7 @@ function GenericMasterPage({ endpoint, fields, title, filters = [] }) {
           </div>
         </div>
       )}
-      {showForm && <FormModal title={modalTitle} fields={fields} current={current} onSubmit={save} onCancel={() => setShowForm(false)} />}
+      {showForm && <FormModal title={modalTitle} fields={fields} current={current} onSubmit={save} onCancel={() => setShowForm(false)} saving={saving} />}
     </div>
   )
 }
