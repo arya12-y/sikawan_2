@@ -128,7 +128,7 @@ function BankSoal() {
         </div>
       </div>
 
-      <div className="card border-0 shadow-sm">
+      {!showForm && <div className="card border-0 shadow-sm">
         <div className="card-body">
           <div className="d-flex flex-wrap gap-2 justify-content-between align-items-center mb-3">
             <div className="d-flex flex-wrap gap-2">
@@ -167,29 +167,24 @@ function BankSoal() {
             </div>
           )}
         </div>
-      </div>
+      </div>}
 
-      {showForm && <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }} onClick={(e) => e.target === e.currentTarget && setShowForm(false)}>
-        <div className="modal-dialog modal-lg"><div className="modal-content"><form onSubmit={handleSubmit(save)}>
-          <div className="modal-header"><h5 className="modal-title">{editing ? 'Edit' : 'Tambah'} Soal</h5><button type="button" className="btn-close" onClick={() => setShowForm(false)} /></div>
-          <div className="modal-body"><div className="row g-3">
+      {showForm && <div className="card shadow-sm border-0">
+        <div className="card-body p-4">
+          <div className="d-flex justify-content-between align-items-center mb-4"><h5 className="fw-bold mb-0">{editing ? 'Edit' : 'Tambah'} Soal</h5><button type="button" className="btn btn-outline-secondary btn-sm" onClick={() => setShowForm(false)}><i className="bi bi-arrow-left me-1"></i>Kembali</button></div>
+          <form onSubmit={handleSubmit(save)}><div className="row g-3">
             <div className="col-md-6"><label className="form-label">Kompetensi</label><select className="form-select" {...register('kompetensi_id', { required: true })}><option value="">Pilih Kompetensi</option>{kompetensis.map((item) => <option key={item.id} value={item.id}>{item.nama}</option>)}</select></div>
             <div className="col-md-6"><label className="form-label">Level</label><select className="form-select" {...register('level_id')}><option value="">Semua Level</option>{levels.map((item) => <option key={item.id} value={item.id}>{item.nama}</option>)}</select></div>
             <div className="col-md-6"><label className="form-label">Jenis Soal</label><select className="form-select" {...register('jenis')}><option value="pilihan_ganda">Pilihan Ganda</option><option value="essay">Essay</option></select></div>
             <div className="col-md-3"><label className="form-label">Bobot</label><input className="form-control" type="number" step="0.1" {...register('bobot', { required: true })} /></div>
             <div className="col-md-3"><label className="form-label">Status</label><select className="form-select" {...register('is_active')}><option value={1}>Aktif</option><option value={0}>Nonaktif</option></select></div>
             <div className="col-12"><label className="form-label">Pertanyaan</label><textarea className="form-control" rows="3" {...register('pertanyaan', { required: true })} /></div>
-            {jenis === 'pilihan_ganda' && <>
-              <div className="col-md-6"><label className="form-label">Pilihan A</label><input className="form-control" {...register('pilihan_a')} /></div>
-              <div className="col-md-6"><label className="form-label">Pilihan B</label><input className="form-control" {...register('pilihan_b')} /></div>
-              <div className="col-md-6"><label className="form-label">Pilihan C</label><input className="form-control" {...register('pilihan_c')} /></div>
-              <div className="col-md-6"><label className="form-label">Pilihan D</label><input className="form-control" {...register('pilihan_d')} /></div>
-            </>}
+            {jenis === 'pilihan_ganda' && <><div className="col-md-6"><label className="form-label">Pilihan A</label><input className="form-control" {...register('pilihan_a')} /></div><div className="col-md-6"><label className="form-label">Pilihan B</label><input className="form-control" {...register('pilihan_b')} /></div><div className="col-md-6"><label className="form-label">Pilihan C</label><input className="form-control" {...register('pilihan_c')} /></div><div className="col-md-6"><label className="form-label">Pilihan D</label><input className="form-control" {...register('pilihan_d')} /></div></>}
             <div className="col-12"><label className="form-label">Jawaban Benar</label><input className="form-control" placeholder="Isi sama persis dengan pilihan benar untuk PG" {...register('jawaban_benar')} /></div>
             <div className="col-12"><label className="form-label">Pembahasan</label><textarea className="form-control" rows="2" {...register('pembahasan')} /></div>
-          </div></div>
-          <div className="modal-footer"><button type="button" className="btn btn-secondary" onClick={() => setShowForm(false)}>Batal</button><button className="btn btn-primary">Simpan Soal</button></div>
-        </form></div></div>
+            <div className="col-12 d-flex justify-content-end gap-2"><button type="button" className="btn btn-outline-secondary" onClick={() => setShowForm(false)}>Batal</button><button className="btn btn-primary">Simpan Soal</button></div>
+          </div></form>
+        </div>
       </div>}
     </div>
   )

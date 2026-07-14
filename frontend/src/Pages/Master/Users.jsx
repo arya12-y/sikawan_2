@@ -86,7 +86,7 @@ function Users() {
           </tr>)}{rows.length === 0 && <tr><td colSpan="6" className="text-center text-muted py-4">Tidak ada data pengguna</td></tr>}</tbody>
         </table></div>
       </div>
-      {showForm && <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }} onClick={(e) => e.target === e.currentTarget && setShowForm(false)}><div className="modal-dialog"><div className="modal-content"><form onSubmit={handleSubmit(createUser)}>
+      {showForm && <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1060 }} onClick={(e) => e.target === e.currentTarget && setShowForm(false)}><div className="modal-dialog"><div className="modal-content"><form onSubmit={handleSubmit(createUser)}>
         <div className="modal-header"><h5 className="modal-title">Tambah Pengguna Internal</h5><button type="button" className="btn-close" onClick={() => setShowForm(false)} /></div>
         <div className="modal-body"><div className="alert alert-info small">Pendaftaran publik hanya untuk Walidata. Gunakan menu ini untuk membuat akun Admin, Penguji, Pimpinan, atau akun internal lain.</div><div className="row g-3">
           <div className="col-12"><label className="form-label fw-semibold">Nama</label><input className="form-control" {...register('name', { required: true })} /></div>

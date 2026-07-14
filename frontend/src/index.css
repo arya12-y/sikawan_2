@@ -428,13 +428,15 @@ a { text-decoration: none; color: inherit; }
 /* ─── BADGES ──────────────────────────────── */
 .badge { font-weight: 700; border-radius: 8px; padding: 0.35em 0.65em; font-size: 0.72rem; letter-spacing: 0.03em; }
 
-/* ─── MODAL Z-INDEX FIX ───────────────────── */
-.modal {
-  z-index: 1060;
-}
-.modal-backdrop {
-  z-index: 1050;
-}
+/* ─── Z-INDEX LAYERING FIX ────────────────── */
+.admin-navbar { z-index: 1020; position: sticky; top: 0; }
+.admin-sidebar { z-index: 1030; }
+.admin-offcanvas { z-index: 1040 !important; }
+.dropdown-menu { z-index: 1045 !important; }
+
+.modal-backdrop { z-index: 1050 !important; }
+.modal { z-index: 1060 !important; }
+
 .pembelajaran-card {
   border-radius: var(--radius);
   transition: transform 0.22s, box-shadow 0.22s;
@@ -722,7 +724,13 @@ a { text-decoration: none; color: inherit; }
   .user-menu { padding: 0.2rem 0.45rem 0.2rem 0.2rem; gap: 0.35rem; }
   .user-menu .avatar { width: 34px; height: 34px; font-size: 0.82rem; }
   .mobile-user-name { display: inline; max-width: 72px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.72rem; }
-  .notification-dropdown-menu { width: calc(100vw - 1.6rem) !important; max-width: 380px; right: -48px !important; }
+  
+  .notification-dropdown-menu { 
+    width: 320px !important;
+    right: -60px !important;
+    left: auto !important;
+  }
+  
   .table-responsive { border: 0; overflow: visible; }
   .table { font-size: 0.78rem; }
   .table thead { display: none; }

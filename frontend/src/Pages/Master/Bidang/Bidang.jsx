@@ -112,7 +112,7 @@ function Bidang() {
       </div>
 
       {showForm && (
-        <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }} onClick={(e) => e.target === e.currentTarget && setShowForm(false)}>
+        <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1060 }} onClick={(e) => e.target === e.currentTarget && setShowForm(false)}>
           <div className="modal-dialog"><div className="modal-content"><form onSubmit={handleSubmit(save)}>
             <div className="modal-header"><h5 className="modal-title">{editing ? 'Edit' : 'Tambah'} Bidang</h5><button type="button" className="btn-close" onClick={() => setShowForm(false)} /></div>
             <div className="modal-body"><div className="row g-3">

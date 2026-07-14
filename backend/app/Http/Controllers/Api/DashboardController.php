@@ -26,10 +26,11 @@ class DashboardController extends Controller
             ],
             'level_distribution' => DB::table('walidatas')
                 ->leftJoin('levels', 'levels.id', '=', 'walidatas.level_id')
-                ->selectRaw("COALESCE(levels.nama, 'Belum Ada Level') as label, COUNT(*) as value")
-                ->groupBy('levels.nama')
-                ->orderBy('levels.urutan')
-                ->get(),
+                ->selectRaw("COALESCE(levels.nama, 'Belum Ada Level') as label, COUNT(*) as value, MIN(levels.urutan) as sort_order")
+                ->groupBy('label')
+                ->orderBy('sort_order')
+                ->get()
+                ->map(fn ($item) => ['label' => $item->label, 'value' => $item->value]),
             'asesmen_status' => PesertaAsesmen::query()
                 ->selectRaw('status as label, COUNT(*) as value')
                 ->groupBy('status')

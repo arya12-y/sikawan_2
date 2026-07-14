@@ -186,7 +186,7 @@ function MateriList({ jenis }) {
         </div>
       )}
 
-      <div className="card shadow-sm border-0">
+      {!showForm && <div className="card shadow-sm border-0">
         <div className="card-body">
           <div className="d-flex flex-wrap gap-2 justify-content-between align-items-center mb-3">
             <div className="d-flex gap-2 align-items-center">
@@ -257,18 +257,16 @@ function MateriList({ jenis }) {
             </div>
           )}
         </div>
-      </div>
+      </div>}
 
       {showForm && canManage && (
-        <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }} onClick={(e) => e.target === e.currentTarget && setShowForm(false)}>
-          <div className="modal-dialog modal-lg">
-            <div className="modal-content">
+        <div className="card shadow-sm border-0 mt-4 inline-form-card">
+          <div className="card-body p-4">
               <form onSubmit={handleSubmit(onSubmit)}>
-                <div className="modal-header">
-                  <h5 className="modal-title">{editing ? 'Edit' : 'Tambah'} {config.title}</h5>
-                  <button type="button" className="btn-close" onClick={() => setShowForm(false)} />
+                <div className="d-flex justify-content-between align-items-center mb-4">
+                  <h5 className="fw-bold mb-0">{editing ? 'Edit' : 'Tambah'} {config.title}</h5>
+                  <button type="button" className="btn btn-outline-secondary btn-sm" onClick={() => setShowForm(false)}><i className="bi bi-arrow-left me-1"></i>Kembali</button>
                 </div>
-                <div className="modal-body">
                   <div className="row g-3">
                     <div className="col-12">
                       <label className="form-label fw-semibold">Judul <span className="text-danger">*</span></label>
@@ -327,13 +325,11 @@ function MateriList({ jenis }) {
                       </select>
                     </div>
                   </div>
-                </div>
-                <div className="modal-footer">
-                  <button type="button" className="btn btn-secondary" onClick={() => setShowForm(false)}>Batal</button>
+                <div className="d-flex justify-content-end gap-2 mt-4">
+                  <button type="button" className="btn btn-outline-secondary" onClick={() => setShowForm(false)}>Batal</button>
                   <button className="btn btn-primary">Simpan</button>
                 </div>
               </form>
-            </div>
           </div>
         </div>
       )}
