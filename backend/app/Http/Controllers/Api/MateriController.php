@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Models\Materi;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 
@@ -52,6 +53,26 @@ class MateriController extends CrudController
         $materi->update(['is_published' => true, 'published_at' => now()]);
 
         return response()->json($materi);
+    }
+
+    public function serveFile($id)
+    {
+        $materi = Materi::findOrFail($id);
+        if (!$materi->file_path) abort(404, 'File tidak ditemukan');
+        $path = Storage::disk('public')->path($materi->file_path);
+        if (!file_exists($path)) abort(404, 'File tidak ditemukan');
+
+        return response()->file($path);
+    }
+
+    public function serveThumbnail($id)
+    {
+        $materi = Materi::findOrFail($id);
+        if (!$materi->thumbnail) abort(404, 'Thumbnail tidak ditemukan');
+        $path = Storage::disk('public')->path($materi->thumbnail);
+        if (!file_exists($path)) abort(404, 'Thumbnail tidak ditemukan');
+
+        return response()->file($path);
     }
 
     private function files(Request $request, array $data): array

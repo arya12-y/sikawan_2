@@ -11,7 +11,7 @@ const jenisConfig = {
 }
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://backend-production-fdfb.up.railway.app/api'
-const STORAGE_URL = API_BASE.replace(/\/api$/, '') + '/storage/'
+const FILE_URL = API_BASE.replace(/\/api$/, '')
 
 function getYoutubeId(url) {
   if (!url) return null
@@ -146,7 +146,7 @@ function MateriList({ jenis }) {
 
   const openFile = (row) => {
     if (row.file_path) {
-      window.open(STORAGE_URL + row.file_path, '_blank')
+      window.open(FILE_URL + '/api/materi/' + row.id + '/file', '_blank')
     }
   }
 
@@ -181,11 +181,11 @@ function MateriList({ jenis }) {
               </div>
             ) : jenis === 'video' && viewing.file_path ? (
               <div className="ratio ratio-16x9 mb-3">
-                <video controls src={STORAGE_URL + viewing.file_path}></video>
+                <video controls src={FILE_URL + '/api/materi/' + viewing.id + '/file'}></video>
               </div>
             ) : jenis === 'pdf' && viewing.file_path ? (
               <div className="ratio" style={{ minHeight: 600, '--bs-aspect-ratio': 'auto' }}>
-                <iframe src={STORAGE_URL + viewing.file_path} title={viewing.judul} style={{ width: '100%', height: 600, border: 'none' }}></iframe>
+                <iframe src={FILE_URL + '/api/materi/' + viewing.id + '/file'} title={viewing.judul} style={{ width: '100%', height: 600, border: 'none' }}></iframe>
               </div>
             ) : (
               <div className="text-center py-4 text-muted">
@@ -230,7 +230,7 @@ function MateriList({ jenis }) {
               {rows.map((row) => (
                 <div className="col-md-6 col-xl-4" key={row.id}>
                   <div className="card border h-100">
-                    {row.thumbnail ? <img src={STORAGE_URL + row.thumbnail} alt={row.judul} className="card-img-top" style={{ height: 160, objectFit: 'cover' }} onError={(e) => { e.target.style.display = 'none'; e.target.parentNode.querySelector('.thumb-fallback')?.classList.remove('d-none') }} /> : null}
+                    {row.thumbnail ? <img src={FILE_URL + '/api/materi/' + row.id + '/thumbnail'} alt={row.judul} className="card-img-top" style={{ height: 160, objectFit: 'cover' }} onError={(e) => { e.target.style.display = 'none'; e.target.parentNode.querySelector('.thumb-fallback')?.classList.remove('d-none') }} /> : null}
                     <div className={`card-img-top d-grid place-items-center text-white thumb-fallback ${row.thumbnail ? 'd-none' : ''}`} style={{ height: 120, background: config.gradient, fontSize: '2.5rem' }}>
                       <i className={`bi ${config.icon}`}></i>
                     </div>
