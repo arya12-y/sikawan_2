@@ -168,6 +168,13 @@ function MateriList({ jenis }) {
     link.remove()
   }
 
+  const trackView = async (row) => {
+    setViewing(row)
+    try {
+      await api.post(`/materi/${row.id}/progress`, { progress: 100 })
+    } catch { /* silently fail */ }
+  }
+
   return (
     <div>
       {notif && <div className={`alert alert-${notif.type === 'success' ? 'success' : 'danger'} alert-dismissible fade show d-flex align-items-center gap-2 py-2 px-3 mb-3`} role="alert" style={{ borderRadius: 12, fontSize: '0.9rem' }}>
@@ -274,7 +281,7 @@ function MateriList({ jenis }) {
                       </div>
                     </div>
                     <div className="card-footer bg-white d-flex gap-2">
-                      <button className="btn btn-sm btn-success flex-fill" onClick={() => setViewing(row)}>
+                      <button className="btn btn-sm btn-success flex-fill" onClick={() => trackView(row)}>
                         <i className={`bi ${config.viewIcon} me-1`}></i>{config.viewLabel}
                       </button>
                       {row.file_path && (

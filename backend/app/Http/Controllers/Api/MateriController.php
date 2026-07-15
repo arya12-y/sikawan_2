@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Models\Materi;
+use App\Models\MateriProgress;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -94,6 +95,25 @@ class MateriController extends CrudController
         $materi->update(['is_published' => true, 'published_at' => now()]);
 
         return response()->json($materi);
+    }
+
+    public function trackProgress(Request $request, $id)
+    {
+        $materi = Materi::findOrFail($id);
+        $user = $request->user();
+
+        $data = $request->validate(['progress' => ['required', 'integer', 'min:0', 'max:100']]);
+
+        $progress = MateriProgress::updateOrCreate(
+            ['user_id' => $user->id, 'materi_id' => $materi->id],
+            [
+                'progress' => $data['progress'],
+                'is_completed' => $data['progress'] >= 100,
+                'completed_at' => $data['progress'] >= 100 ? now() : null,
+            ]
+        );
+
+        return response()->json($progress);
     }
 
     public function serveFile($id)

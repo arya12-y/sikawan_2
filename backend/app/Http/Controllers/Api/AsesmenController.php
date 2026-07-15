@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Models\Asesmen;
 use App\Models\BankSoal;
 use App\Models\JawabanPeserta;
+use App\Models\NilaiKompetensi;
 use App\Models\PesertaAsesmen;
 use App\Models\Sertifikat;
 use App\Services\AssessmentService;
@@ -119,10 +120,32 @@ class AsesmenController extends CrudController
                 );
             }
 
+            $this->saveCompetencyScores($peserta);
+
             return $peserta->refresh();
         });
 
         return response()->json($peserta);
+    }
+
+    private function saveCompetencyScores(PesertaAsesmen $peserta): void
+    {
+        $peserta->loadMissing(['jawabanPesertas.bankSoal', 'asesmen.bankSoals']);
+        $grouped = $peserta->jawabanPesertas->groupBy(fn ($jp) => $jp->bankSoal?->kompetensi_id ?? $peserta->asesmen->kompetensi_id);
+
+        foreach ($grouped as $kompetensiId => $jawabans) {
+            $totalBobot = $jawabans->sum(fn ($jp) => (float) ($jp->bankSoal?->bobot ?? 1));
+            $totalNilai = $jawabans->sum(fn ($jp) => (float) ($jp->nilai ?? 0));
+            $nilai = $totalBobot > 0 ? round(($totalNilai / $totalBobot) * 100, 2) : 0;
+
+            NilaiKompetensi::updateOrCreate(
+                ['user_id' => $peserta->user_id, 'kompetensi_id' => $kompetensiId, 'asesmen_id' => $peserta->asesmen_id],
+                ['nilai' => $nilai, 'level_id' => $peserta->asesmen->level_id, 'kategori' => $peserta->asesmen->judul]
+            );
+        }
+
+        $avg = NilaiKompetensi::where('user_id', $peserta->user_id)->avg('nilai');
+        \App\Models\Walidata::where('user_id', $peserta->user_id)->update(['nilai_kompetensi' => round($avg ?? 0, 2)]);
     }
 
     public function review(Request $request, $pesertaId)

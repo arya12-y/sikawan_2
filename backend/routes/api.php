@@ -72,6 +72,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     ]);
 
     Route::post('materi/{materi}/publish', [MateriController::class, 'publish']);
+    Route::post('materi/{materi}/progress', [MateriController::class, 'trackProgress']);
     Route::post('asesmens/{asesmen}/attach-soals', [AsesmenController::class, 'attachSoals']);
     Route::post('asesmens/{asesmen}/start', [AsesmenController::class, 'start']);
     Route::post('peserta-asesmens/{peserta}/save-answer', [AsesmenController::class, 'saveAnswer']);

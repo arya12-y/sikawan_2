@@ -7,6 +7,8 @@ use App\Models\Opd;
 use App\Models\PesertaAsesmen;
 use App\Models\Sertifikat;
 use App\Models\Walidata;
+use App\Models\MateriProgress;
+use App\Models\NilaiKompetensi;
 use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
@@ -14,7 +16,7 @@ class DashboardController extends Controller
     public function index()
     {
         $totalWalidata = Walidata::count();
-        $sertifiedUsers = Sertifikat::query()->distinct('user_id')->count('user_id');
+        $sertifiedUsers = Sertifikat::distinct('user_id')->count('user_id');
 
         return response()->json([
             'totals' => [
@@ -25,16 +27,18 @@ class DashboardController extends Controller
                 'nilai_rata_rata' => (int) round((float) PesertaAsesmen::whereIn('status', ['selesai', 'dinilai'])->avg('nilai')),
             ],
             'level_distribution' => DB::table('walidatas')
+                ->whereNull('walidatas.deleted_at')
                 ->leftJoin('levels', 'levels.id', '=', 'walidatas.level_id')
-                ->selectRaw("COALESCE(levels.nama, 'Belum Ada Level') as label, COUNT(*) as value, MIN(levels.urutan) as sort_order")
+                ->selectRaw("COALESCE(levels.nama, 'Belum Ada Level') as label, COUNT(*) as value, MIN(COALESCE(levels.urutan, 999)) as sort_order")
                 ->groupBy('label')
                 ->orderBy('sort_order')
                 ->get()
                 ->map(fn ($item) => ['label' => $item->label, 'value' => $item->value]),
             'asesmen_status' => PesertaAsesmen::query()
-                ->selectRaw('status as label, COUNT(*) as value')
-                ->groupBy('status')
-                ->get(),
+                ->selectRaw('COALESCE(NULLIF(status, \'\'), \'belum_mulai\') as label, COUNT(*) as value')
+                ->groupBy('label')
+                ->get()
+                ->map(fn ($item) => ['label' => $item->label === 'belum_mulai' ? 'Belum Mulai' : ucfirst($item->label), 'value' => $item->value]),
             'top_opd' => Opd::query()
                 ->withCount('walidatas')
                 ->orderByDesc('walidatas_count')
@@ -43,19 +47,24 @@ class DashboardController extends Controller
                 ->map(fn (Opd $opd) => ['label' => $opd->singkatan ?: $opd->nama, 'value' => $opd->walidatas_count]),
             'top_walidata' => Walidata::query()
                 ->with('user')
+                ->where('nilai_kompetensi', '>', 0)
                 ->orderByDesc('nilai_kompetensi')
                 ->limit(10)
                 ->get()
-                ->map(fn (Walidata $walidata) => ['label' => $walidata->user?->name ?: 'Walidata', 'value' => (float) $walidata->nilai_kompetensi]),
-            'kompetensi_scores' => DB::table('nilai_kompetensis')
-                ->join('kompetensis', 'kompetensis.id', '=', 'nilai_kompetensis.kompetensi_id')
-                ->selectRaw('kompetensis.nama as label, ROUND(AVG(nilai_kompetensis.nilai)) as value')
-                ->groupBy('kompetensis.id', 'kompetensis.nama')
-                ->orderBy('kompetensis.nama')
-                ->get(),
-            'training_progress' => DB::table('materi_progress')
-                ->selectRaw('ROUND(AVG(progress)) as value, SUM(CASE WHEN is_completed = 1 THEN 1 ELSE 0 END) as completed, COUNT(*) as total')
-                ->first(),
+                ->map(fn (Walidata $w) => ['label' => $w->user?->name ?: 'Walidata', 'value' => (float) $w->nilai_kompetensi]),
+            'kompetensi_scores' => NilaiKompetensi::query()
+                ->selectRaw('kompetensi_id, ROUND(AVG(nilai)) as value')
+                ->groupBy('kompetensi_id')
+                ->get()
+                ->map(fn ($item) => [
+                    'label' => $item->kompetensi?->nama ?? 'Kompetensi #'.$item->kompetensi_id,
+                    'value' => (int) $item->value,
+                ]),
+            'training_progress' => [
+                'value' => (int) round((float) MateriProgress::avg('progress')),
+                'completed' => MateriProgress::where('is_completed', true)->count(),
+                'total' => MateriProgress::count(),
+            ],
             'kompetensi_map' => Opd::query()
                 ->withCount('walidatas')
                 ->withAvg('walidatas', 'nilai_kompetensi')
