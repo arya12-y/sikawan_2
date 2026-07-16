@@ -12,7 +12,6 @@ use App\Services\AssessmentService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class AsesmenController extends CrudController
@@ -108,7 +107,7 @@ class AsesmenController extends CrudController
                 Sertifikat::firstOrCreate(
                     ['user_id' => $peserta->user_id, 'asesmen_id' => $peserta->asesmen_id],
                     [
-                        'nomor_sertifikat' => 'SKW-'.now()->format('Ymd').'-'.Str::upper(Str::random(6)),
+                        'nomor_sertifikat' => 'SKW-'.str_pad((string) (\App\Models\Sertifikat::max('id') + 1), 4, '0', STR_PAD_LEFT),
                         'kompetensi_id' => $peserta->asesmen->kompetensi_id,
                         'level_id' => $peserta->asesmen->level_id,
                         'nilai_akhir' => $peserta->nilai,

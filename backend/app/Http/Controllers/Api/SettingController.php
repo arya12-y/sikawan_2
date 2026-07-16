@@ -18,9 +18,7 @@ class SettingController extends Controller
         $data = $request->validate([
             'cert_verify_url' => ['required', 'url'],
         ]);
-
         Setting::updateOrCreate(['key' => 'cert_verify_url'], ['value' => $data['cert_verify_url']]);
-
         return response()->json(['message' => 'Pengaturan berhasil disimpan']);
     }
 }
