@@ -52,7 +52,10 @@ body { margin: 0; padding: 0; width: 100%; font-family: 'DejaVu Sans', Arial, He
       </div>
       <div class="qr">
         @php
-          $baseUrl = \App\Models\Setting::where('key', 'cert_verify_url')->value('value') ?? url('/verify');
+          try {
+            $baseUrl = \App\Models\Setting::where('key', 'cert_verify_url')->value('value');
+          } catch (\Throwable $e) { $baseUrl = null; }
+          $baseUrl = $baseUrl ?? url('/api/sertifikat/verify/'.$sertifikat->nomor_sertifikat);
           $verifyUrl = rtrim($baseUrl, '/').'/'.$sertifikat->nomor_sertifikat;
         @endphp
         <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={{ urlencode($verifyUrl) }}" alt="QR Code"/>
