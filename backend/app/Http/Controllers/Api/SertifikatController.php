@@ -8,6 +8,7 @@ use App\Models\Sertifikat;
 use App\Services\AssessmentService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
+use SimpleSoftwareIO\QrCode\Facades\QrCode;
 
 class SertifikatController extends Controller
 {
@@ -34,8 +35,16 @@ class SertifikatController extends Controller
     public function download($id)
     {
         $sertifikat = Sertifikat::with('user', 'asesmen', 'kompetensi', 'level')->findOrFail($id);
-        $pdf = Pdf::loadView('sertifikat.pdf', ['sertifikat' => $sertifikat]);
-        $pdf->setOption('isRemoteEnabled', true);
+
+        try {
+            $baseUrl = \App\Models\Setting::where('key', 'cert_verify_url')->value('value');
+        } catch (\Throwable $e) { $baseUrl = null; }
+        $baseUrl = $baseUrl ?? url('/api/sertifikat/verify/'.$sertifikat->nomor_sertifikat);
+        $verifyUrl = rtrim($baseUrl, '/').'/'.$sertifikat->nomor_sertifikat;
+
+        $qrCode = QrCode::size(100)->generate($verifyUrl);
+
+        $pdf = Pdf::loadView('sertifikat.pdf', ['sertifikat' => $sertifikat, 'qrCode' => $qrCode]);
 
         return $pdf->download($sertifikat->nomor_sertifikat.'.pdf');
     }

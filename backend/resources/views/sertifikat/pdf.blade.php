@@ -51,14 +51,7 @@ body { margin: 0; padding: 0; width: 100%; font-family: 'DejaVu Sans', Arial, He
         <p class="verify-text">Diterbitkan secara elektronik oleh SIKAWAN</p>
       </div>
       <div class="qr">
-        @php
-          try {
-            $baseUrl = \App\Models\Setting::where('key', 'cert_verify_url')->value('value');
-          } catch (\Throwable $e) { $baseUrl = null; }
-          $baseUrl = $baseUrl ?? url('/api/sertifikat/verify/'.$sertifikat->nomor_sertifikat);
-          $verifyUrl = rtrim($baseUrl, '/').'/'.$sertifikat->nomor_sertifikat;
-        @endphp
-        <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={{ urlencode($verifyUrl) }}" alt="QR Code"/>
+        {!! $qrCode !!}
         <p class="verify-text">Scan untuk verifikasi</p>
       </div>
     </div>
