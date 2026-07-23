@@ -30,7 +30,39 @@ function Users() {
   const update = async (user, data) => { try { await api.patch(`/users/${user.id}`, data); load() } catch (e) { alert(e.response?.data?.message || 'Gagal') } }
   const updateRole = async (user, role) => { if (role !== getRole(user) && await confirmAction({ title: 'Ubah role pengguna?', text: `Role ${user.name} akan diubah menjadi ${role}.`, confirmButtonText: 'Ya, ubah', icon: 'question' })) update(user, { roles: [role] }) }
   const toggleActive = async (user) => { const isActive = !user.is_active; if (await confirmAction({ title: `${isActive ? 'Aktifkan' : 'Nonaktifkan'} pengguna?`, text: `${user.name} akan ${isActive ? 'dapat' : 'tidak dapat'} mengakses sistem.`, confirmButtonText: isActive ? 'Ya, aktifkan' : 'Ya, nonaktifkan', icon: isActive ? 'question' : 'warning' })) update(user, { is_active: isActive }) }
-  const deleteUser = async (user) => { if (await confirmAction({ title: 'Hapus pengguna?', text: `Akun "${user.name}" akan dihapus permanen. Tindakan ini tidak dapat dibatalkan.`, confirmButtonText: 'Ya, hapus', icon: 'error' })) { try { await api.delete(`/users/${user.id}`); load() } catch (e) { alert(e.response?.data?.message || 'Gagal menghapus') } } }
+  const deleteUser = async (row) => {
+    const isSuperAdmin = user?.roles?.includes('Super Admin')
+    const isDark = document.documentElement.classList.contains('dark')
+    const Swal = (await import('sweetalert2')).default
+
+    const result = await Swal.fire({
+      title: 'Hapus pengguna?',
+      html: `Akun <strong>${row.name}</strong> akan dihapus.<br/>
+             <span style="font-size:12px;color:#94a3b8;">Soft delete: data tetap tersimpan di database.<br/>
+             ${isSuperAdmin ? 'Centang di bawah untuk hapus permanen.' : ''}</span>`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Ya, Hapus',
+      cancelButtonText: 'Batal',
+      reverseButtons: true,
+      confirmButtonColor: '#EF4444',
+      background: isDark ? '#14141E' : '#FFFFFF',
+      color: isDark ? '#F1F5F9' : '#0F172A',
+      ...(isSuperAdmin ? {
+        input: 'checkbox',
+        inputValue: 0,
+        inputPlaceholder: 'Hapus permanen dari database',
+      } : {}),
+    })
+    if (!result.isConfirmed) return
+    try {
+      const force = isSuperAdmin && result.value === 1
+      await api.delete(`/users/${row.id}`, { params: force ? { force: true } : {} })
+      load()
+    } catch (e) {
+      Swal.fire({ icon: 'error', title: 'Gagal', text: e.response?.data?.message || 'Gagal menghapus', background: isDark ? '#14141E' : '#FFFFFF', color: isDark ? '#F1F5F9' : '#0F172A', confirmButtonColor: '#6366f1' })
+    }
+  }
   const openCreate = () => { reset({ name: '', email: '', password: '', nip: '', phone: '', role: 'Admin Diskominfo', is_active: 1 }); setShowForm(true) }
   const createUser = async (data) => { setSaving(true); try { await api.post('/users', { ...data, roles: [data.role], is_active: Number(data.is_active) === 1 }); setShowForm(false); load() } catch (e) { alert(e.response?.data?.errors ? Object.values(e.response.data.errors).flat().join('\n') : e.response?.data?.message || 'Gagal') } finally { setSaving(false) } }
   return <div>{!showForm && <section className="rounded-2xl border border-[#1E1E2E] bg-[#14141E] shadow-sm"><div className="p-6"><div className="mb-6 flex items-start justify-between"><div className="flex items-start gap-4"><div><p className="text-xs font-semibold uppercase tracking-widest text-indigo-400">Master data</p><h1 className="mt-1 text-2xl font-bold text-slate-100">Pengguna & Hak Akses</h1><p className="mt-1 text-sm text-slate-400">Buat akun internal dan atur role pengguna sistem.</p></div></div>{can(user, 'pengguna.create') && <button className={`${buttonClass} bg-indigo-600 text-white shadow-sm hover:bg-indigo-700 focus:ring-indigo-200`} onClick={openCreate}>+ Tambah Pengguna</button>}</div><div className="mb-6 grid grid-cols-12 gap-3"><div className="relative col-span-4"><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-500" /><input className="w-full rounded-xl border border-[#262636] bg-[#1A1A26] py-2.5 pl-10 pr-3 text-sm text-slate-100 outline-none transition placeholder:text-slate-500 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30" placeholder="Cari nama, email..." value={search} onChange={(e) => setSearch(e.target.value)} /></div></div><div className="overflow-hidden rounded-xl border border-[#1E1E2E]"><table className="w-full text-left text-sm"><thead className="bg-[#09090E] text-xs uppercase tracking-wider text-slate-400"><tr>{['Nama', 'Email', 'NIP', 'Role', 'Status', 'Aksi'].map((label) => <th className="px-5 py-3.5 font-semibold last:text-center" key={label}>{label}</th>)}</tr></thead><tbody className="divide-y divide-slate-100">{rows.map((item) => <tr className="hover:bg-[#14141E]/[0.03]/80" key={item.id}><td className="px-5 py-4 font-semibold text-slate-100">{item.name}</td><td className="px-5 py-4 text-slate-400">{item.email}</td><td className="px-5 py-4 text-slate-400">{item.nip || '-'}</td><td className="px-5 py-4">{can(user, 'pengguna.update') ? <select className="rounded-lg border border-[#1E1E2E] bg-[#14141E] px-2.5 py-1.5 text-xs font-medium text-slate-300 outline-none focus:border-indigo-500" value={getRole(item)} onChange={(e) => updateRole(item, e.target.value)}>{roleList.map((role) => <option key={role}>{role}</option>)}</select> : getRole(item)}</td><td className="px-5 py-4"><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${item.is_active ? 'bg-emerald-500/10 text-emerald-400' : 'bg-[#1A1A26] text-slate-400'}`}>{item.is_active ? 'Aktif' : 'Menunggu Verifikasi'}</span></td><td className="px-5 py-4 text-right">{can(user, 'pengguna.update') ? <>

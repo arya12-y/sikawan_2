@@ -99,11 +99,17 @@ class AsesmenController extends CrudController
 
     public function submit(Request $request, AssessmentService $service, $pesertaId)
     {
+        $peserta = PesertaAsesmen::findOrFail($pesertaId);
+        abort_unless($peserta->user_id === $request->user()->id, 403);
+
+        $peserta->loadMissing('jawabanPesertas.bankSoal');
+        $essayKosong = $peserta->jawabanPesertas->filter(fn ($j) =>
+            $j->bankSoal?->jenis === 'essay' && empty(trim($j->jawaban ?? ''))
+        );
+        abort_if($essayKosong->isNotEmpty(), 422, 'Jawab semua soal essay terlebih dahulu sebelum mengumpulkan');
+
         $peserta = DB::transaction(function () use ($request, $service, $pesertaId) {
             $peserta = PesertaAsesmen::findOrFail($pesertaId);
-            abort_unless($peserta->user_id === $request->user()->id, 403);
-
-            // Hitung nilai sementara dari PG saja (essay belum dinilai)
             $peserta->loadMissing('asesmen.bankSoals', 'jawabanPesertas.bankSoal');
             $totalBobot = (float) $peserta->asesmen?->bankSoals->sum(fn ($soal) => (float) $soal->bobot);
             $totalNilaiPG = (float) $peserta->jawabanPesertas
@@ -220,7 +226,7 @@ class AsesmenController extends CrudController
     public function gradeEssay(Request $request, AssessmentService $service, $jawabanId)
     {
         abort_unless($this->canGradeEssay($request), 403);
-        $data = $request->validate(['nilai' => ['required', 'numeric', 'min:0'], 'catatan_penguji' => ['nullable', 'string']]);
+        $data = $request->validate(['nilai' => ['required', 'numeric', 'min:0', 'max:100'], 'catatan_penguji' => ['nullable', 'string']]);
         $jawaban = JawabanPeserta::findOrFail($jawabanId);
         $jawaban->update($data + [
             'dinilai_oleh' => $request->user()?->id,
