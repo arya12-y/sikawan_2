@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
-import { BarChart3, Sparkles, RefreshCw, MapPin, Building, Users, BadgeCheck, Hourglass, TrendingUp } from 'lucide-react'
+import { BarChart3, Sparkles, RefreshCw, MapPin, Building, Users, BadgeCheck, Hourglass, TrendingUp, BookOpen, FileCheck, Award, Trophy } from 'lucide-react'
 import { Bar, Doughnut, Pie, Radar } from 'react-chartjs-2'
 import { Chart as ChartJS, ArcElement, BarElement, CategoryScale, LinearScale, PointElement, LineElement, RadialLinearScale, Filler, Tooltip, Legend } from 'chart.js'
 import api from '../../api/axios'
+import { useAuth } from '../../hooks/useAuth'
 
 ChartJS.register(ArcElement, BarElement, CategoryScale, LinearScale, PointElement, LineElement, RadialLinearScale, Filler, Tooltip, Legend)
 
@@ -43,6 +44,7 @@ function Empty({ text, sub }) {
 }
 
 function Dashboard() {
+  const { user } = useAuth()
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
 
@@ -93,6 +95,24 @@ function Dashboard() {
         </div>
       ) : (
         <>
+          {/* Walidata Stats */}
+          {user?.roles?.includes('Walidata') && data?.walidata_stats && (
+            <div className="grid grid-cols-4 gap-4">
+              {[
+                { icon: Trophy, label: 'Level Saat Ini', value: data.walidata_stats.level_saat_ini, gradient: 'from-indigo-600 to-indigo-800' },
+                { icon: BookOpen, label: 'Progress Materi', value: `${data.walidata_stats.progress_materi}%`, gradient: 'from-emerald-600 to-emerald-800' },
+                { icon: FileCheck, label: 'Pretest', value: data.walidata_stats.pretest_selesai ? 'Selesai' : 'Belum', gradient: 'from-amber-600 to-amber-800' },
+                { icon: Award, label: 'Sertifikat', value: data.walidata_stats.total_sertifikat, gradient: 'from-violet-600 to-violet-800' },
+              ].map((card, i) => (
+                <div key={i} className={`relative overflow-hidden rounded-xl bg-gradient-to-br ${card.gradient} p-5 shadow-lg`}>
+                  <card.icon className="absolute right-3 top-3 h-10 w-10 text-white/10" />
+                  <p className="text-xs font-semibold uppercase tracking-wider text-white/70">{card.label}</p>
+                  <p className="mt-1.5 text-2xl font-bold text-white">{card.value}</p>
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* Stat Cards */}
           <div className="grid grid-cols-5 gap-4">
             {statCards.map((card) => {

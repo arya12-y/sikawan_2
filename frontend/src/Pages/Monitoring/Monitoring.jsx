@@ -1,6 +1,9 @@
-import { RefreshCw, Activity, UserCheck, Clock, CheckCircle, XCircle, Play, Award } from 'lucide-react'
+import { RefreshCw, Activity, UserCheck, CheckCircle, XCircle, Play, Award, FileCheck, Trash2 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
+import { useAuth } from '../../hooks/useAuth'
+import { can } from '../../utils/can'
 import api from '../../api/axios'
+import Swal from 'sweetalert2'
 
 const normalizeRows = (payload) => {
   const rows = payload?.data ?? payload
@@ -8,8 +11,11 @@ const normalizeRows = (payload) => {
 }
 
 function Monitoring() {
+  const { user } = useAuth()
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(true)
+  const [pretestRows, setPretestRows] = useState([])
+  const [pretestLoading, setPretestLoading] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -19,7 +25,73 @@ function Monitoring() {
     } catch { setRows([]) } finally { setLoading(false) }
   }, [])
 
-  useEffect(() => { queueMicrotask(() => load()) }, [load])
+  const loadPretest = useCallback(async () => {
+    setPretestLoading(true)
+    try {
+      const res = await api.get('/pretest/monitoring')
+      setPretestRows(res.data ?? [])
+    } catch { setPretestRows([]) } finally { setPretestLoading(false) }
+  }, [])
+
+  useEffect(() => { queueMicrotask(() => { load(); loadPretest() }) }, [load, loadPretest])
+
+  const resetExam = async (row) => {
+    const isDark = document.documentElement.classList.contains('dark')
+    const result = await Swal.fire({
+      title: 'Reset ujian?',
+      text: `"${row.user?.name}" — "${row.asesmen?.judul}". Jawaban dan sertifikat akan dihapus.`,
+      icon: 'warning', showCancelButton: true, confirmButtonText: 'Ya, Reset',
+      cancelButtonText: 'Batal', reverseButtons: true, confirmButtonColor: '#EF4444',
+      background: isDark ? '#14141E' : '#FFFFFF', color: isDark ? '#F1F5F9' : '#0F172A',
+      customClass: { popup: 'swal-premium', confirmButton: 'swal-confirm-btn', cancelButton: 'swal-cancel-btn' },
+    })
+    if (!result.isConfirmed) return
+    try {
+      await api.post(`/peserta-asesmens/${row.id}/reset`)
+      load()
+    } catch (e) {
+      Swal.fire({ icon: 'error', title: 'Gagal', text: e.response?.data?.message || 'Gagal reset', background: isDark ? '#14141E' : '#FFFFFF', color: isDark ? '#F1F5F9' : '#0F172A', confirmButtonColor: '#6366f1', customClass: { popup: 'swal-premium', confirmButton: 'swal-confirm-btn' } })
+    }
+  }
+
+  const resetPretest = async (row) => {
+    const isDark = document.documentElement.classList.contains('dark')
+    const result = await Swal.fire({
+      title: 'Reset pretest?',
+      text: `"${row.user_name}" — Semua jawaban pretest akan dihapus.`,
+      icon: 'warning', showCancelButton: true, confirmButtonText: 'Ya, Reset',
+      cancelButtonText: 'Batal', reverseButtons: true, confirmButtonColor: '#EF4444',
+      background: isDark ? '#14141E' : '#FFFFFF', color: isDark ? '#F1F5F9' : '#0F172A',
+      customClass: { popup: 'swal-premium', confirmButton: 'swal-confirm-btn', cancelButton: 'swal-cancel-btn' },
+    })
+    if (!result.isConfirmed) return
+    try {
+      await api.post('/pretest/reset', { user_id: row.user_id })
+      loadPretest()
+    } catch (e) {
+      Swal.fire({ icon: 'error', title: 'Gagal', text: e.response?.data?.message || 'Gagal reset pretest', background: isDark ? '#14141E' : '#FFFFFF', color: isDark ? '#F1F5F9' : '#0F172A', confirmButtonColor: '#6366f1', customClass: { popup: 'swal-premium', confirmButton: 'swal-confirm-btn' } })
+    }
+  }
+
+  const cleanupPretest = async () => {
+    const isDark = document.documentElement.classList.contains('dark')
+    const Swal = (await import('sweetalert2')).default
+    const result = await Swal.fire({
+      title: 'Bersihkan data sampah?',
+      text: 'Data pretest dari akun yang sudah dihapus akan dibersihkan.',
+      icon: 'warning', showCancelButton: true, confirmButtonText: 'Ya, bersihkan', cancelButtonText: 'Batal', reverseButtons: true, confirmButtonColor: '#EF4444',
+      background: isDark ? '#14141E' : '#FFFFFF', color: isDark ? '#F1F5F9' : '#0F172A',
+      customClass: { popup: 'swal-premium', confirmButton: 'swal-confirm-btn', cancelButton: 'swal-cancel-btn' },
+    })
+    if (!result.isConfirmed) return
+    try {
+      const res = await api.post('/pretest/cleanup')
+      Swal.fire({ icon: 'success', title: 'Berhasil', text: res.data?.message || `${res.data?.deleted || 0} data dibersihkan`, confirmButtonText: 'OK', background: isDark ? '#14141E' : '#FFFFFF', color: isDark ? '#F1F5F9' : '#0F172A', confirmButtonColor: '#6366f1' })
+      loadPretest()
+    } catch (e) {
+      Swal.fire({ icon: 'error', title: 'Gagal', text: e.response?.data?.message || 'Gagal bersihkan data', background: isDark ? '#14141E' : '#FFFFFF', color: isDark ? '#F1F5F9' : '#0F172A', confirmButtonColor: '#6366f1' })
+    }
+  }
 
   const stats = {
     total: rows.length,
@@ -72,39 +144,97 @@ function Monitoring() {
             <table className="w-full text-left text-sm">
               <thead className="text-xs uppercase tracking-wider text-slate-500">
                 <tr className="border-b border-[#262636] bg-[#09090E]">
-                  <th className="px-5 py-3.5 font-semibold">Peserta</th><th className="px-5 py-3.5 font-semibold">Asesmen</th><th className="px-5 py-3.5 font-semibold">Progress / Nilai</th><th className="px-5 py-3.5 font-semibold translate-x-[5px]">Status</th>
+                  <th className="px-5 py-3.5 font-semibold">Peserta</th><th className="px-5 py-3.5 font-semibold">Asesmen</th><th className="px-5 py-3.5 font-semibold">Progress / Nilai</th><th className="px-5 py-3.5 font-semibold">Status</th><th className="px-5 py-3.5 text-right font-semibold">Aksi</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#262636]">
                 {rows.map((row) => {
                   const completed = row.status === 'selesai'
+                  const belumMulai = row.status === 'belum_mulai'
                   const passed = row.lulus
-                  const progress = completed ? 100 : 50
-                  const color = completed ? (passed ? 'from-emerald-500 to-emerald-400' : 'from-rose-500 to-rose-400') : 'from-indigo-500 to-violet-500'
+                  const progress = completed ? 100 : (belumMulai ? 0 : 50)
+                  const color = completed ? (passed ? 'from-emerald-500 to-emerald-400' : 'from-rose-500 to-rose-400') : (belumMulai ? 'from-slate-500 to-slate-400' : 'from-indigo-500 to-violet-500')
                   return (
                     <tr className="transition hover:bg-white/[0.02]" key={row.id}>
                       <td className="px-5 py-4"><p className="font-medium text-slate-100">{row.user?.name ?? '-'}</p><p className="mt-0.5 text-xs text-slate-500">{row.user?.opd_name ?? 'OPD'}</p></td>
                       <td className="px-5 py-4 text-slate-400">{row.asesmen?.judul ?? '-'}</td>
                       <td className="px-5 py-4 min-w-[200px]">
                         <div className="flex justify-between mb-1.5">
-                          <span className="text-xs font-medium text-slate-300">{completed ? `Nilai: ${row.nilai}` : 'Sedang mengerjakan'}</span>
-                          <span className="text-xs text-slate-500">{completed ? '100%' : '50%'}</span>
+                          <span className="text-xs font-medium text-slate-300">{completed ? `Nilai: ${row.nilai}` : (belumMulai ? 'Belum mulai' : 'Sedang mengerjakan')}</span>
+                          <span className="text-xs text-slate-500">{completed ? '100%' : (belumMulai ? '0%' : '50%')}</span>
                         </div>
                         <div className="h-2 rounded-full bg-[#1E1E2E] overflow-hidden">
-                          <div className={`h-full rounded-full bg-gradient-to-r ${color} transition-all ${!completed ? 'animate-pulse' : ''}`} style={{ width: completed ? '100%' : '50%' }} />
+                          <div className={`h-full rounded-full bg-gradient-to-r ${color} transition-all ${(!completed && !belumMulai) ? 'animate-pulse' : ''}`} style={{ width: `${progress}%` }} />
                         </div>
                       </td>
                       <td className="px-5 py-4">
                         {completed ? (
                           passed ? <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-400"><CheckCircle className="h-3 w-3" /> Lulus</span>
                             : <span className="inline-flex items-center gap-1 rounded-full bg-rose-500/10 px-2.5 py-1 text-xs font-medium text-rose-400"><XCircle className="h-3 w-3" /> Tidak Lulus</span>
+                        ) : belumMulai ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-slate-500/10 px-2.5 py-1 text-xs font-medium text-slate-400">Belum mulai</span>
                         ) : (
                           <span className="inline-flex items-center gap-1 rounded-full bg-indigo-500/10 px-2.5 py-1 text-xs font-medium text-indigo-400"><Play className="h-3 w-3" /> Mengerjakan</span>
+                        )}
+                      </td>
+                      <td className="px-5 py-4 text-right">
+                        {completed && (user?.roles?.includes('Super Admin') || user?.roles?.includes('Admin Diskominfo')) && (
+                          <button onClick={() => resetExam(row)} className="rounded-lg px-2.5 py-1 text-xs font-medium text-rose-400 transition hover:bg-rose-500/10">Reset</button>
                         )}
                       </td>
                     </tr>
                   )
                 })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* ── Pretest Section ── */}
+      <div className="rounded-2xl border border-[#262636] bg-[#14141E] shadow-sm">
+        <div className="border-b border-[#262636] px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <FileCheck className="h-5 w-5 text-indigo-400" />
+              <h3 className="text-base font-bold text-slate-100">Hasil Pretest</h3>
+            </div>
+            <div className="flex gap-2">
+              {(user?.roles?.includes('Super Admin') || user?.roles?.includes('Admin Diskominfo')) && (
+                <button onClick={cleanupPretest} className="inline-flex items-center gap-1.5 rounded-full border border-rose-600/20 px-3 py-1.5 text-xs font-medium text-rose-400 transition hover:bg-rose-500/10"><Trash2 className="h-3.5 w-3.5" />Bersihkan</button>
+              )}
+              <button onClick={loadPretest} disabled={pretestLoading} className="inline-flex items-center gap-1.5 rounded-full border border-[#262636] px-3 py-1.5 text-xs font-medium text-slate-300 transition hover:border-indigo-500/30 hover:text-indigo-400">
+                <RefreshCw className={`h-3.5 w-3.5 ${pretestLoading ? 'animate-spin' : ''}`} />Refresh
+              </button>
+            </div>
+          </div>
+        </div>
+        {pretestLoading ? (
+          <div className="flex items-center justify-center py-12"><div className="h-6 w-6 animate-spin rounded-full border-2 border-indigo-400 border-t-transparent" /></div>
+        ) : pretestRows.length === 0 ? (
+          <div className="flex flex-col items-center py-12 text-slate-500"><FileCheck className="mb-3 h-10 w-10 opacity-30" /><p className="text-sm font-medium">Belum ada hasil pretest</p></div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="text-xs uppercase tracking-wider text-slate-500">
+                <tr className="border-b border-[#262636] bg-[#09090E]">
+                  <th className="px-5 py-3.5 font-semibold">Peserta</th><th className="px-5 py-3.5 font-semibold">Level</th><th className="px-5 py-3.5 font-semibold">Nilai Rata-rata</th><th className="px-5 py-3.5 font-semibold">Tanggal</th><th className="px-5 py-3.5 text-right font-semibold">Aksi</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#262636]">
+                {pretestRows.map((row) => (
+                  <tr className="transition hover:bg-white/[0.02]" key={row.sesi_id}>
+                    <td className="px-5 py-4"><p className="font-medium text-slate-100">{row.user_name}</p></td>
+                    <td className="px-5 py-4 text-slate-400">{row.level_name}</td>
+                    <td className="px-5 py-4 text-slate-300">{row.rata_rata}</td>
+                    <td className="px-5 py-4 text-slate-400">{row.completed_at ? new Date(row.completed_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : '-'}</td>
+                    <td className="px-5 py-4 text-right">
+                      {(user?.roles?.includes('Super Admin') || user?.roles?.includes('Admin Diskominfo')) && (
+                        <button onClick={() => resetPretest(row)} className="rounded-lg px-2.5 py-1 text-xs font-medium text-rose-400 transition hover:bg-rose-500/10">Reset</button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>

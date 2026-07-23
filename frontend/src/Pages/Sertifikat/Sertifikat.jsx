@@ -1,4 +1,4 @@
-import { RefreshCw, Award, Download, FileCheck, Users, TrendingUp } from 'lucide-react'
+import { RefreshCw, Award, Download, Users, TrendingUp } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import api from '../../api/axios'
 import { can } from '../../utils/can'

@@ -1,15 +1,17 @@
 import { useState } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { canAccessPath } from '../utils/access'
+import { canAccessPath, getMenuLock, isWalidataRole } from '../utils/access'
 import { useAuth } from '../hooks/useAuth'
 import { useTheme } from '../hooks/useTheme'
+import { useSchedule } from '../hooks/useSchedule'
 import NotificationDropdown from '../Components/NotificationDropdown'
+import { Lock } from 'lucide-react'
 import {
   GraduationCap, LayoutDashboard, Database, BookOpen, HelpCircle, ClipboardCheck,
   Activity, Award, FileBarChart, ShieldCheck, Shield, Bell, User, LogOut,
   ChevronDown, Menu, X, Building2, UsersIcon, Briefcase, Star, BarChart3,
-  Tags, UserCheck, UserCog, Play, FileText, BookMarked, Sun, Moon,
+  Tags, UserCheck, UserCog, Play, FileText, BookMarked, Sun, Moon, Calendar, FileCheck,
 } from 'lucide-react'
 
 const navSections = [
@@ -32,6 +34,7 @@ const navSections = [
     ]},
   ]},
   { title: 'Pembelajaran', items: [
+    { label: 'Pretest', icon: FileCheck, path: '/pretest' },
     { label: 'Materi', icon: BookOpen, path: '/pembelajaran', children: [
       { label: 'Video', path: '/pembelajaran/video', icon: Play },
       { label: 'Modul PDF', path: '/pembelajaran/pdf', icon: FileText },
@@ -43,32 +46,38 @@ const navSections = [
   ]},
   { title: 'Monitoring & Laporan', items: [
     { label: 'Monitoring', icon: Activity, path: '/monitoring' },
+    { label: 'Penilaian', icon: ClipboardCheck, path: '/penilaian' },
     { label: 'Sertifikat', icon: Award, path: '/sertifikat' },
     { label: 'Laporan', icon: FileBarChart, path: '/laporan' },
     { label: 'Audit Log', icon: ShieldCheck, path: '/audit-log' },
   ]},
   { title: 'Pengaturan', items: [
     { label: 'Notifikasi', icon: Bell, path: '/notifikasi' },
+    { label: 'Jadwal', icon: Calendar, path: '/exam-schedules' },
   ]},
 ]
 
-function NavItem({ item, collapsed, onNavClick, location, user }) {
+function NavItem({ item, collapsed, onNavClick, location, user, schedule, phase, pretestDone, lulus, asesmenStatus }) {
   const [open, setOpen] = useState(() => item.children?.some(c => location.pathname === c.path) ?? false)
   const visibleChildren = item.children?.filter(c => canAccessPath(user, c.path)) ?? []
   const hasChildren = visibleChildren.length > 0
   const isActive = item.path ? location.pathname === item.path : false
   const isChildActive = item.children?.some(c => location.pathname === c.path) ?? false
+  const lockInfo = item.path ? getMenuLock(item.path, phase, pretestDone, schedule, user, lulus, asesmenStatus) : { locked: false, message: '' }
+
+  const navClass = `flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm font-medium transition-all duration-150`
+  const normalClass = isActive || isChildActive ? 'text-slate-100 bg-indigo-500/10' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
+  const lockedClass = 'text-slate-600 cursor-not-allowed'
 
   if (hasChildren) {
     return (
       <div>
         <button
           onClick={() => !collapsed && setOpen(o => !o)}
-          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 ${
-            isChildActive ? 'text-slate-100 bg-indigo-500/10' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
-          }`}
+          disabled={lockInfo.locked}
+          className={`${navClass} ${lockInfo.locked ? lockedClass : normalClass}`}
         >
-          <item.icon className={`w-[18px] h-[18px] shrink-0 ${isChildActive ? 'text-indigo-400' : 'text-slate-500'}`} />
+          <item.icon className={`w-[18px] h-[18px] shrink-0 ${lockInfo.locked ? 'text-slate-600' : isChildActive ? 'text-indigo-400' : 'text-slate-500'}`} />
           <AnimatePresence>
             {!collapsed && (
               <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex-1 text-left truncate">
@@ -76,14 +85,20 @@ function NavItem({ item, collapsed, onNavClick, location, user }) {
               </motion.span>
             )}
           </AnimatePresence>
-          {!collapsed && (
+          {!collapsed && lockInfo.locked && (
+            <Lock className="w-3 h-3 text-slate-600 shrink-0" />
+          )}
+          {!collapsed && !lockInfo.locked && (
             <motion.div animate={{ rotate: open ? 180 : 0 }} transition={{ duration: 0.2 }}>
               <ChevronDown className="w-3.5 h-3.5 text-slate-500 shrink-0" />
             </motion.div>
           )}
         </button>
+        {lockInfo.locked && !collapsed && lockInfo.message && (
+          <p className="ml-10 pb-1 pr-2 text-[9px] text-amber-400/60 leading-none">{lockInfo.message}</p>
+        )}
         <AnimatePresence>
-          {open && !collapsed && (
+          {open && !collapsed && !lockInfo.locked && (
             <motion.div
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: 'auto', opacity: 1 }}
@@ -94,19 +109,29 @@ function NavItem({ item, collapsed, onNavClick, location, user }) {
               <div className="ml-8 mt-0.5 space-y-0.5 border-l border-[#1E1E2E] pl-2">
                 {visibleChildren.map((child) => {
                   const childActive = location.pathname === child.path
+                  const childLock = getMenuLock(child.path, phase, pretestDone, schedule, user, lulus, asesmenStatus)
                   return (
-                    <NavLink
-                      key={child.path}
-                      to={child.path}
-                      end
-                      onClick={onNavClick}
-                      className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-all duration-150 ${
-                        childActive ? 'text-indigo-400 bg-indigo-500/10 font-medium' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
-                      }`}
-                    >
-                      <child.icon className="w-3.5 h-3.5 shrink-0" />
-                      <span className="truncate">{child.label}</span>
-                    </NavLink>
+                    <div key={child.path}>
+                      {childLock.locked ? (
+                        <div className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm text-slate-600 cursor-not-allowed`}>
+                          <child.icon className="w-3.5 h-3.5 shrink-0 text-slate-600" />
+                          <span className="truncate flex-1">{child.label}</span>
+                          {childLock.message && <span className="text-[10px] text-amber-400/60 whitespace-nowrap">{childLock.message}</span>}
+                        </div>
+                      ) : (
+                        <NavLink
+                          to={child.path}
+                          end
+                          onClick={onNavClick}
+                          className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-all duration-150 ${
+                            childActive ? 'text-indigo-400 bg-indigo-500/10 font-medium' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
+                          }`}
+                        >
+                          <child.icon className="w-3.5 h-3.5 shrink-0" />
+                          <span className="truncate">{child.label}</span>
+                        </NavLink>
+                      )}
+                    </div>
                   )
                 })}
               </div>
@@ -117,14 +142,33 @@ function NavItem({ item, collapsed, onNavClick, location, user }) {
     )
   }
 
+  if (lockInfo.locked) {
+    return (
+      <div>
+        <div className={`${navClass} ${lockedClass}`}>
+          <item.icon className="w-[18px] h-[18px] shrink-0 text-slate-600" />
+          <AnimatePresence>
+            {!collapsed && (
+              <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="truncate">
+                {item.label}
+              </motion.span>
+            )}
+          </AnimatePresence>
+          {!collapsed && <Lock className="w-3 h-3 text-slate-600 shrink-0" />}
+        </div>
+        {!collapsed && lockInfo.message && (
+          <p className="ml-10 -mt-1 pb-1 pr-2 text-[9px] text-amber-400/60 leading-none">{lockInfo.message}</p>
+        )}
+      </div>
+    )
+  }
+
   return (
     <NavLink
       to={item.path}
       end
       onClick={onNavClick}
-      className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 ${
-        isActive ? 'text-slate-100 bg-indigo-500/10' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
-      }`}
+      className={`${navClass} ${normalClass}`}
     >
       <item.icon className={`w-[18px] h-[18px] shrink-0 ${isActive ? 'text-indigo-400' : 'text-slate-500'}`} />
       <AnimatePresence>
@@ -138,7 +182,7 @@ function NavItem({ item, collapsed, onNavClick, location, user }) {
   )
 }
 
-function SidebarContent({ user, collapsed, onNavClick }) {
+function SidebarContent({ user, collapsed, onNavClick, phase, pretestDone, lulus, asesmenStatus, schedule }) {
   const location = useLocation()
   return (
     <>
@@ -158,26 +202,35 @@ function SidebarContent({ user, collapsed, onNavClick }) {
         </AnimatePresence>
       </Link>
       <nav className="flex-1 px-2 py-3 overflow-y-auto space-y-5">
-        {navSections.map((section) => {
-          const visibleItems = section.items.filter((item) => canAccessPath(user, item.path))
-          if (visibleItems.length === 0) return null
-          return (
-            <div key={section.title}>
-              <AnimatePresence>
-                {!collapsed && (
-                  <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="px-3 mb-1.5 text-[10px] font-bold tracking-widest uppercase text-slate-500">
-                    {section.title}
-                  </motion.p>
-                )}
-              </AnimatePresence>
-              <div className="space-y-0.5">
-                {visibleItems.map((item) => (
-                  <NavItem key={item.label} item={item} collapsed={collapsed} onNavClick={onNavClick} location={location} user={user} />
-                ))}
-              </div>
+        {!phase && isWalidataRole(user) && !collapsed ? (
+          <div className="space-y-3 px-3">
+            <div className="h-3 w-16 animate-pulse rounded bg-slate-700/50" />
+            <div className="space-y-1">
+              {[1,2,3,4].map(i => <div key={i} className="h-8 animate-pulse rounded-lg bg-slate-700/30" />)}
             </div>
-          )
-        })}
+          </div>
+        ) : (
+          navSections.map((section) => {
+            const visibleItems = section.items.filter((item) => canAccessPath(user, item.path))
+            if (visibleItems.length === 0) return null
+            return (
+              <div key={section.title}>
+                <AnimatePresence>
+                  {!collapsed && (
+                    <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="px-3 mb-1.5 text-[10px] font-bold tracking-widest uppercase text-slate-500">
+                      {section.title}
+                    </motion.p>
+                  )}
+                </AnimatePresence>
+                <div className="space-y-0.5">
+                  {visibleItems.map((item) => (
+                    <NavItem key={item.label} item={item} collapsed={collapsed} onNavClick={onNavClick} location={location} user={user} schedule={schedule} phase={phase} pretestDone={pretestDone} lulus={lulus} asesmenStatus={asesmenStatus} />
+                  ))}
+                </div>
+              </div>
+            )
+          })
+        )}
       </nav>
     </>
   )
@@ -190,9 +243,11 @@ function AdminLayout() {
   const { theme, toggle: toggleTheme } = useTheme()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [showUserMenu, setShowUserMenu] = useState(false)
+  const { phase, pretestDone, lulus, asesmenStatus, schedule } = useSchedule()
 
   const flatTitles = { '/profile': 'Profile', '/users': 'Pengguna', '/roles': 'Role & Hak Akses' }
   const findTitle = () => {
+    if (!canAccessPath(user, location.pathname)) return ''
     if (flatTitles[location.pathname]) return flatTitles[location.pathname]
     for (const section of navSections) {
       for (const item of section.items) {
@@ -211,11 +266,11 @@ function AdminLayout() {
   return (
     <div className="flex h-screen bg-[#09090E] overflow-hidden">
       <motion.aside
-        animate={{ width: collapsed ? 64 : 220 }}
+        animate={{ width: collapsed ? 60 : 200 }}
         transition={{ duration: 0.25, ease: 'easeInOut' }}
         className="hidden lg:flex flex-col bg-[#0F0F17] border-r border-[#1E1E2E] overflow-hidden shrink-0 sidebar-surface"
       >
-        <SidebarContent user={user} collapsed={collapsed} onNavClick={() => {}} />
+        <SidebarContent user={user} collapsed={collapsed} onNavClick={() => {}} phase={phase} pretestDone={pretestDone} lulus={lulus} asesmenStatus={asesmenStatus} schedule={schedule} />
       </motion.aside>
       <AnimatePresence>
         {mobileOpen && (
@@ -224,12 +279,12 @@ function AdminLayout() {
       </AnimatePresence>
       <AnimatePresence>
         {mobileOpen && (
-          <motion.aside initial={{ x: -220 }} animate={{ x: 0 }} exit={{ x: -220 }} transition={{ duration: 0.2, ease: 'easeInOut' }} className="fixed inset-y-0 left-0 z-50 w-[220px] flex flex-col bg-[#0F0F17] border-r border-[#1E1E2E] lg:hidden">
+          <motion.aside initial={{ x: -200 }} animate={{ x: 0 }} exit={{ x: -200 }} transition={{ duration: 0.2, ease: 'easeInOut' }} className="fixed inset-y-0 left-0 z-50 w-[200px] flex flex-col bg-[#0F0F17] border-r border-[#1E1E2E] lg:hidden">
             <div className="flex items-center justify-between px-4 py-4 border-b border-[#1E1E2E]">
               <span className="text-slate-100 font-bold">SIKAWAN</span>
               <button onClick={() => setMobileOpen(false)} className="text-slate-400 hover:text-slate-200"><X className="w-5 h-5" /></button>
             </div>
-            <SidebarContent user={user} collapsed={false} onNavClick={() => setMobileOpen(false)} />
+            <SidebarContent user={user} collapsed={false} onNavClick={() => setMobileOpen(false)} phase={phase} pretestDone={pretestDone} lulus={lulus} asesmenStatus={asesmenStatus} schedule={schedule} />
           </motion.aside>
         )}
       </AnimatePresence>

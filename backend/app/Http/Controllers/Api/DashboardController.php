@@ -4,16 +4,20 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Opd;
+use Illuminate\Http\Request;
 use App\Models\PesertaAsesmen;
 use App\Models\Sertifikat;
 use App\Models\Walidata;
 use App\Models\MateriProgress;
 use App\Models\NilaiKompetensi;
+use App\Models\PretestResult;
+use App\Models\Materi;
+use App\Models\Level;
 use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         $totalWalidata = Walidata::count();
         $sertifiedUsers = Sertifikat::distinct('user_id')->count('user_id');
@@ -60,6 +64,23 @@ class DashboardController extends Controller
                     'label' => $item->kompetensi?->nama ?? 'Kompetensi #'.$item->kompetensi_id,
                     'value' => (int) $item->value,
                 ]),
+            'walidata_stats' => function () use ($request) {
+                $user = $request->user();
+                if (!$user || !$user->walidata) return null;
+                $walidata = $user->walidata;
+                $totalMateri = Materi::where('is_published', true)->count();
+                $selesaiMateri = MateriProgress::where('user_id', $user->id)->where('is_completed', true)->count();
+                $pretest = PretestResult::where('user_id', $user->id)->exists();
+                $level = $walidata->level;
+                $nextLevel = $level ? Level::where('urutan', $level->urutan + 1)->first() : null;
+                return [
+                    'level_saat_ini' => $level?->nama ?? 'Belum ada level',
+                    'level_berikutnya' => $nextLevel?->nama ?? '-',
+                    'progress_materi' => $totalMateri > 0 ? round(($selesaiMateri / $totalMateri) * 100) : 0,
+                    'pretest_selesai' => $pretest,
+                    'total_sertifikat' => \App\Models\Sertifikat::where('user_id', $user->id)->count(),
+                ];
+            },
             'training_progress' => [
                 'value' => (int) round((float) MateriProgress::avg('progress')),
                 'completed' => MateriProgress::where('is_completed', true)->count(),

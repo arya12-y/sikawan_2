@@ -31,9 +31,6 @@ class BankSoalController extends CrudController
     public function store(Request $request)
     {
         $data = $request->validate($this->validationRules());
-        if (isset($data['pilihan']) && is_array($data['pilihan'])) {
-            $data['pilihan'] = json_encode($data['pilihan']);
-        }
         $data['created_by'] = $request->user()?->id;
 
         return response()->json(BankSoal::create($data)->load($this->with), 201);
@@ -43,9 +40,6 @@ class BankSoalController extends CrudController
     {
         $soal = BankSoal::findOrFail($id);
         $data = $request->validate($this->validationRules($soal));
-        if (isset($data['pilihan']) && is_array($data['pilihan'])) {
-            $data['pilihan'] = json_encode($data['pilihan']);
-        }
         $soal->update($data);
 
         return response()->json($soal->load($this->with));

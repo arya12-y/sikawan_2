@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Helpers\NotifikasiHelper;
 use App\Models\Asesmen;
 use App\Models\BankSoal;
 use App\Models\JawabanPeserta;
@@ -9,6 +10,7 @@ use App\Models\NilaiKompetensi;
 use App\Models\PesertaAsesmen;
 use App\Models\Sertifikat;
 use App\Services\AssessmentService;
+use App\Services\AuditLogService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -100,25 +102,22 @@ class AsesmenController extends CrudController
         $peserta = DB::transaction(function () use ($request, $service, $pesertaId) {
             $peserta = PesertaAsesmen::findOrFail($pesertaId);
             abort_unless($peserta->user_id === $request->user()->id, 403);
-            $service->recalculatePeserta($peserta);
-            $peserta->update(['status' => 'selesai', 'waktu_selesai' => now()]);
-            $peserta->refresh()->load('asesmen');
 
-            if ($peserta->lulus) {
-                Sertifikat::firstOrCreate(
-                    ['user_id' => $peserta->user_id, 'asesmen_id' => $peserta->asesmen_id],
-                    [
-                        'nomor_sertifikat' => 'SKW-'.now()->format('Ymd').'-'.Str::upper(Str::random(6)),
-                        'kompetensi_id' => $peserta->asesmen->kompetensi_id,
-                        'level_id' => $peserta->asesmen->level_id,
-                        'nilai_akhir' => $peserta->nilai,
-                        'kategori_kompetensi' => $service->kategori((float) $peserta->nilai),
-                        'tanggal_terbit' => now(),
-                        'tanggal_expired' => now()->addYears(3),
-                        'is_active' => true,
-                    ]
-                );
-            }
+            // Hitung nilai sementara dari PG saja (essay belum dinilai)
+            $peserta->loadMissing('asesmen.bankSoals', 'jawabanPesertas.bankSoal');
+            $totalBobot = (float) $peserta->asesmen?->bankSoals->sum(fn ($soal) => (float) $soal->bobot);
+            $totalNilaiPG = (float) $peserta->jawabanPesertas
+                ->filter(fn ($j) => $j->bankSoal?->jenis === 'pilihan_ganda')
+                ->sum(fn ($j) => (float) ($j->nilai ?? 0));
+            $nilaiSementara = $totalBobot > 0 ? round(($totalNilaiPG / $totalBobot) * 100) : 0;
+
+            $peserta->update([
+                'status' => 'selesai',
+                'waktu_selesai' => now(),
+                'nilai' => $nilaiSementara,
+                'lulus' => null,
+            ]);
+            $peserta->refresh()->load('asesmen');
 
             $this->saveCompetencyScores($peserta);
 
@@ -148,6 +147,36 @@ class AsesmenController extends CrudController
         \App\Models\Walidata::where('user_id', $peserta->user_id)->update(['nilai_kompetensi' => round($avg ?? 0, 2)]);
     }
 
+    public function reset(Request $request, $pesertaId)
+    {
+        abort_unless($request->user()->hasAnyRole(['Super Admin', 'Admin Diskominfo']), 403);
+
+        $peserta = PesertaAsesmen::with('asesmen')->findOrFail($pesertaId);
+
+        $peserta->jawabanPesertas()->delete();
+
+        \App\Models\Sertifikat::where('user_id', $peserta->user_id)
+            ->where('asesmen_id', $peserta->asesmen_id)
+            ->delete();
+
+        $peserta->update([
+            'status' => 'belum_mulai',
+            'nilai' => null,
+            'lulus' => null,
+            'waktu_mulai' => null,
+            'waktu_selesai' => null,
+        ]);
+
+        AuditLogService::log('reset', 'PesertaAsesmen', 'Reset ujian oleh '.$request->user()->name, [
+            'peserta_id' => $pesertaId,
+            'user_id' => $peserta->user_id,
+            'asesmen' => $peserta->asesmen?->judul,
+            'nilai_lama' => $peserta->nilai,
+        ]);
+
+        return response()->json(['message' => 'Ujian berhasil direset. User dapat memulai ulang.']);
+    }
+
     public function review(Request $request, $pesertaId)
     {
         $peserta = PesertaAsesmen::with('user', 'asesmen', 'jawabanPesertas.bankSoal')->findOrFail($pesertaId);
@@ -156,15 +185,120 @@ class AsesmenController extends CrudController
         return response()->json($peserta);
     }
 
+    public function daftarEssay(Request $request)
+    {
+        abort_unless($this->canGradeEssay($request), 403);
+
+        $jawabans = JawabanPeserta::with([
+            'bankSoal:id,pertanyaan,pembahasan,jawaban_benar',
+            'pesertaAsesmen.asesmen:id,judul',
+            'pesertaAsesmen.user:id,name',
+        ])
+            ->whereHas('bankSoal', fn ($q) => $q->where('jenis', 'essay'))
+            ->whereHas('pesertaAsesmen', fn ($q) => $q->whereIn('status', ['selesai', 'dinilai']))
+            ->latest()
+            ->get()
+            ->map(fn ($j) => [
+                'id' => $j->id,
+                'peserta_id' => $j->peserta_asesmen_id,
+                'peserta_nama' => $j->pesertaAsesmen?->user?->name ?? '-',
+                'asesmen' => $j->pesertaAsesmen?->asesmen?->judul ?? '-',
+                'soal' => $j->bankSoal?->pertanyaan ?? '-',
+                'jawaban' => $j->jawaban,
+                'nilai' => $j->nilai,
+                'catatan_penguji' => $j->catatan_penguji,
+                'dinilai' => !is_null($j->dinilai_oleh),
+                'lulus' => $j->pesertaAsesmen?->lulus,
+                'pembahasan' => $j->bankSoal?->pembahasan,
+                'jawaban_benar' => $j->bankSoal?->jawaban_benar,
+                'created_at' => $j->created_at,
+            ]);
+
+        return response()->json($jawabans);
+    }
+
     public function gradeEssay(Request $request, AssessmentService $service, $jawabanId)
     {
         abort_unless($this->canGradeEssay($request), 403);
         $data = $request->validate(['nilai' => ['required', 'numeric', 'min:0'], 'catatan_penguji' => ['nullable', 'string']]);
         $jawaban = JawabanPeserta::findOrFail($jawabanId);
-        $jawaban->update($data + ['dinilai_oleh' => $request->user()?->id, 'dinilai_at' => now(), 'is_benar' => $data['nilai'] > 0]);
-        $service->recalculatePeserta($jawaban->pesertaAsesmen);
+        $jawaban->update($data + [
+            'dinilai_oleh' => $request->user()?->id,
+            'dinilai_at' => now(),
+            'is_benar' => $data['nilai'] > 0,
+        ]);
+        $peserta = $service->recalculatePeserta($jawaban->pesertaAsesmen);
+
+        $sertifikat = Sertifikat::where('user_id', $peserta->user_id)->where('asesmen_id', $peserta->asesmen_id);
+        if ($peserta->lulus) {
+            $sertifikat->firstOrCreate(
+                ['user_id' => $peserta->user_id, 'asesmen_id' => $peserta->asesmen_id],
+                [
+                    'nomor_sertifikat' => 'SKW-'.now()->format('Ymd').'-'.\Illuminate\Support\Str::upper(\Illuminate\Support\Str::random(6)),
+                    'kompetensi_id' => $peserta->asesmen?->kompetensi_id,
+                    'level_id' => $peserta->asesmen?->level_id,
+                    'nilai_akhir' => $peserta->nilai,
+                    'kategori_kompetensi' => $service->kategori((float) $peserta->nilai),
+                    'tanggal_terbit' => now(),
+                    'tanggal_expired' => now()->addYears(3),
+                    'is_active' => true,
+                ]
+            );
+        } else {
+            $sertifikat->delete();
+        }
 
         return response()->json($jawaban);
+    }
+
+    public function approve(Request $request, AssessmentService $service, $id)
+    {
+        abort_unless($this->canGradeEssay($request), 403);
+        $data = $request->validate(['catatan' => ['nullable', 'string']]);
+        $peserta = \App\Models\PesertaAsesmen::findOrFail($id);
+        $peserta->update([
+            'lulus' => true,
+            'approved_by' => $request->user()?->id,
+            'approved_at' => now(),
+            'catatan_approve' => $data['catatan'] ?? null,
+        ]);
+
+        Sertifikat::firstOrCreate(
+            ['user_id' => $peserta->user_id, 'asesmen_id' => $peserta->asesmen_id],
+            [
+                'nomor_sertifikat' => 'SKW-'.now()->format('Ymd').'-'.\Illuminate\Support\Str::upper(\Illuminate\Support\Str::random(6)),
+                'kompetensi_id' => $peserta->asesmen?->kompetensi_id,
+                'level_id' => $peserta->asesmen?->level_id,
+                'nilai_akhir' => $peserta->nilai,
+                'kategori_kompetensi' => $service->kategori((float) $peserta->nilai),
+                'tanggal_terbit' => now(),
+                'tanggal_expired' => now()->addYears(3),
+                'is_active' => true,
+            ]
+        );
+
+        $namaAsesmen = $peserta->asesmen?->judul ?? 'Asesmen';
+        NotifikasiHelper::send($peserta->user_id, 'Lulus Asesmen', "Selamat! Anda dinyatakan lulus pada asesmen \"{$namaAsesmen}\". Sertifikat telah tersedia.", 'success', '/sertifikat');
+
+        return response()->json(['message' => 'Peserta lulus', 'peserta' => $peserta->fresh()]);
+    }
+
+    public function tolak(Request $request, $id)
+    {
+        abort_unless($this->canGradeEssay($request), 403);
+        $data = $request->validate(['catatan' => ['nullable', 'string']]);
+        $peserta = \App\Models\PesertaAsesmen::findOrFail($id);
+        $peserta->update([
+            'lulus' => false,
+            'catatan_approve' => $data['catatan'] ?? null,
+        ]);
+
+        Sertifikat::where('user_id', $peserta->user_id)->where('asesmen_id', $peserta->asesmen_id)->delete();
+
+        $namaAsesmen = $peserta->asesmen?->judul ?? 'Asesmen';
+        NotifikasiHelper::send($peserta->user_id, 'Belum Lulus Asesmen', "Anda belum lulus pada asesmen \"{$namaAsesmen}\". Silakan pelajari lagi dan coba.", 'warning', '/pembelajaran');
+
+        return response()->json(['message' => 'Peserta tidak lulus', 'peserta' => $peserta->fresh()]);
     }
 
     private function canGradeEssay(Request $request): bool

@@ -21,10 +21,14 @@ import Materi from './Pages/Materi/Materi'
 import MateriList from './Pages/Materi/MateriList'
 import MateriQuiz from './Pages/Materi/MateriQuiz'
 import Monitoring from './Pages/Monitoring/Monitoring'
+import Penilaian from './Pages/Penilaian/Penilaian'
 import Notifikasi from './Pages/Notifikasi/Notifikasi'
+import Pretest from './Pages/Pretest/Pretest'
 import Sertifikat from './Pages/Sertifikat/Sertifikat'
+import ExamSchedules from './Pages/Admin/ExamSchedules'
 import { AuthProvider, useAuth } from './hooks/useAuth'
-import { canAccessPath, firstAllowedPath } from './utils/access'
+import { useSchedule } from './hooks/useSchedule'
+import { canAccessPath, firstAllowedPath, getMenuLock, isWalidataRole } from './utils/access'
 import { Building2, UsersIcon, Briefcase, Star, BarChart3, Award, Tags, Shield, UserCheck, UserCog, ArrowRight } from 'lucide-react'
 
 const masterItems = [
@@ -67,7 +71,20 @@ function ProtectedRoute() {
 function AccessRoute({ children }) {
   const { user } = useAuth()
   const location = useLocation()
-  if (!canAccessPath(user, location.pathname)) return <Navigate to={firstAllowedPath(user)} replace />
+  const { phase, pretestDone, lulus, asesmenStatus, schedule } = useSchedule()
+
+  if (isWalidataRole(user) && !phase) {
+    return <div className="flex items-center justify-center py-32"><div className="h-8 w-8 animate-spin rounded-full border-2 border-indigo-400 border-t-transparent" /></div>
+  }
+
+  if (!canAccessPath(user, location.pathname)) {
+    return <Navigate to={firstAllowedPath(user, phase, pretestDone)} replace />
+  }
+
+  if (getMenuLock(location.pathname, phase, pretestDone, schedule, user, lulus, asesmenStatus)?.locked) {
+    return <Navigate to={firstAllowedPath(user, phase, pretestDone)} replace />
+  }
+
   return children
 }
 
@@ -136,10 +153,13 @@ function AppRoutes() {
         <Route path="pembelajaran/quiz" element={protect(<MateriQuiz />)} />
         <Route path="bank-soal" element={protect(<BankSoal />)} />
         <Route path="asesmen" element={protect(<Asesmen />)} />
+        <Route path="pretest" element={protect(<Pretest />)} />
         <Route path="monitoring" element={protect(<Monitoring />)} />
+        <Route path="penilaian" element={protect(<Penilaian />)} />
         <Route path="sertifikat" element={protect(<Sertifikat />)} />
         <Route path="laporan" element={protect(<Laporan />)} />
         <Route path="audit-log" element={protect(<AuditLog />)} />
+        <Route path="exam-schedules" element={protect(<ExamSchedules />)} />
         <Route path="notifikasi" element={<Notifikasi />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Models\BankSoal;
-use App\Models\Level;
 use App\Models\PesertaAsesmen;
 
 class AssessmentService
@@ -42,7 +41,20 @@ class AssessmentService
     {
         $peserta->loadMissing('asesmen.bankSoals', 'jawabanPesertas.bankSoal');
         $totalBobot = (float) $peserta->asesmen?->bankSoals->sum(fn ($soal) => (float) $soal->bobot);
-        $totalNilai = (float) $peserta->jawabanPesertas->sum(fn ($jawaban) => (float) ($jawaban->nilai ?? 0));
+
+        $totalNilai = 0;
+        foreach ($peserta->jawabanPesertas as $jawaban) {
+            $bobot = (float) ($jawaban->bankSoal->bobot ?? 1);
+            $nilaiJawaban = (float) ($jawaban->nilai ?? 0);
+            if ($jawaban->bankSoal->jenis === 'essay') {
+                // Essay: nilai 0-100 dari penguji, konversi ke bobot
+                $totalNilai += ($nilaiJawaban / 100) * $bobot;
+            } else {
+                // PG: nilai langsung sesuai bobot
+                $totalNilai += $nilaiJawaban;
+            }
+        }
+
         $nilai = $totalBobot > 0 ? round(($totalNilai / $totalBobot) * 100) : 0;
 
         $peserta->update([
@@ -51,12 +63,6 @@ class AssessmentService
         ]);
 
         return $peserta->refresh();
-    }
-
-    public function determineLevel(float $nilai): ?Level
-    {
-        return Level::query()->where('nilai_min', '<=', $nilai)->where('nilai_max', '>=', $nilai)->first()
-            ?? Level::query()->orderByDesc('id')->first();
     }
 
     public function kategori(float $nilai): string

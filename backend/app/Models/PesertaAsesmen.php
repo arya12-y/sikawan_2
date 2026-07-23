@@ -9,8 +9,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['asesmen_id', 'user_id', 'waktu_mulai', 'waktu_selesai', 'nilai', 'status', 'lulus'])]
-#[Casts(['waktu_mulai' => 'datetime', 'waktu_selesai' => 'datetime', 'nilai' => 'decimal:2', 'lulus' => 'boolean'])]
+#[Fillable(['asesmen_id', 'user_id', 'waktu_mulai', 'waktu_selesai', 'nilai', 'status', 'lulus', 'approved_by', 'approved_at', 'catatan_approve'])]
+#[Casts(['waktu_mulai' => 'datetime', 'waktu_selesai' => 'datetime', 'nilai' => 'decimal:2', 'lulus' => 'boolean', 'approved_at' => 'datetime'])]
 class PesertaAsesmen extends Model
 {
     use HasFactory;
@@ -23,6 +23,11 @@ class PesertaAsesmen extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function approver(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'approved_by');
     }
 
     public function jawabanPesertas(): HasMany

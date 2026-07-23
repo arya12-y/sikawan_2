@@ -34,6 +34,12 @@ class MateriController extends CrudController
     {
         $query = $this->modelClass()::query()->with($this->with);
 
+        if ($request->user()) {
+            $query->with(['progress' => function ($q) use ($request) {
+                $q->where('user_id', $request->user()->id);
+            }]);
+        }
+
         // Non-admin users only see published materials
         if (!$request->user()?->hasAnyRole(['Super Admin', 'Admin Diskominfo'])) {
             $query->where('is_published', true);
@@ -113,7 +119,36 @@ class MateriController extends CrudController
             ]
         );
 
-        return response()->json($progress);
+        $levelUp = null;
+        if ($data['progress'] >= 100 && $walidata = $user->walidata) {
+            $currentLevel = $walidata->level;
+            if ($currentLevel) {
+                $totalAtLevel = Materi::where('level_id', $currentLevel->id)
+                    ->where('is_published', true)
+                    ->count();
+
+                $completedAtLevel = MateriProgress::where('user_id', $user->id)
+                    ->where('is_completed', true)
+                    ->whereIn('materi_id', Materi::where('level_id', $currentLevel->id)->pluck('id'))
+                    ->count();
+
+                if ($totalAtLevel > 0 && $completedAtLevel >= $totalAtLevel) {
+                    $nextLevel = Level::where('urutan', $currentLevel->urutan + 1)->first();
+                    if ($nextLevel) {
+                        $walidata->update(['level_id' => $nextLevel->id]);
+                        $levelUp = [
+                            'old_level' => $currentLevel->nama,
+                            'new_level' => $nextLevel->nama,
+                        ];
+                    }
+                }
+            }
+        }
+
+        return response()->json([
+            'progress' => $progress,
+            'level_up' => $levelUp,
+        ]);
     }
 
     public function serveFile($id)

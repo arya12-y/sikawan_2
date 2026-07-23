@@ -59,6 +59,11 @@ class RoleController extends Controller
         return response()->json($role->load('permissions'));
     }
 
+    public function show($id)
+    {
+        return response()->json(Role::with('permissions')->findOrFail($id));
+    }
+
     public function destroy($id)
     {
         $role = Role::findOrFail($id);

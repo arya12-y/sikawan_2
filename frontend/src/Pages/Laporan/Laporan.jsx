@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { FileText, FileSpreadsheet, Download, FileBarChart, Loader, ChevronDown } from 'lucide-react'
+import { FileText, FileSpreadsheet, FileBarChart, Loader, ChevronDown } from 'lucide-react'
 import api from '../../api/axios'
 import { can } from '../../utils/can'
 import { useAuth } from '../../hooks/useAuth'

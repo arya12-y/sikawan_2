@@ -1,9 +1,10 @@
 ﻿import { useCallback, useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { CheckCircle, AlertTriangle, Search, Plus, X, FileDown, Download, AlertCircle, PlayCircle, FileText, Presentation, Play, Eye, Pencil, Trash2, Upload, ChevronLeft, ArrowLeft } from 'lucide-react'
+import { CheckCircle, AlertTriangle, Search, Plus, X, FileDown, Download, AlertCircle, PlayCircle, FileText, Presentation, Play, Eye, Pencil, Trash2, Upload, ArrowLeft, GraduationCap } from 'lucide-react'
 import api from '../../api/axios'
 import { can } from '../../utils/can'
 import { useAuth } from '../../hooks/useAuth'
+import { useSchedule } from '../../hooks/useSchedule'
 import { confirmDelete } from '../../utils/confirm'
 
 const jenisConfig = {
@@ -256,6 +257,7 @@ function MateriList({ jenis }) {
   const canCreate = can(user, 'materi.create')
   const canUpdate = can(user, 'materi.update')
   const canDelete = can(user, 'materi.delete')
+  const isAdmin = user?.roles?.some(r => ['Super Admin', 'Admin Diskominfo'].includes(r))
 
   const [rows, setRows] = useState([])
   const [kompetensis, setKompetensis] = useState([])
@@ -269,6 +271,13 @@ function MateriList({ jenis }) {
   const [thumbnailPreview, setThumbnailPreview] = useState(null)
   const [saving, setSaving] = useState(false)
   const [notif, setNotif] = useState(null)
+  const [status, setStatus] = useState(null)
+  const [phaseState, setPhaseState] = useState(null)
+  const { phase: schedulePhase, pretestDone: schedulePretestDone } = useSchedule()
+  const phase = schedulePhase || phaseState
+  const [userLevelUrutan, setUserLevelUrutan] = useState(null)
+  const [userLevelName, setUserLevelName] = useState(null)
+  const [completedIds, setCompletedIds] = useState(new Set())
   const { register, handleSubmit, reset, formState: { errors, isSubmitted } } = useForm()
 
   useEffect(() => {
@@ -280,11 +289,17 @@ function MateriList({ jenis }) {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const params = { jenis }
+      const params = { jenis, per_page: 100 }
       if (search) params.search = search
       const res = await api.get('/materis', { params })
       const data = res.data?.data ?? res.data
-      setRows(Array.isArray(data) ? data : [])
+      const items = Array.isArray(data) ? data : []
+      setRows(items)
+      const done = new Set()
+      items.forEach(r => {
+        if (r.progress?.length > 0 && r.progress[0].is_completed) done.add(r.id)
+      })
+      setCompletedIds(done)
     } catch (e) {
       alert(e.response?.data?.message || 'Gagal memuat data')
     } finally {
@@ -306,6 +321,20 @@ function MateriList({ jenis }) {
   useEffect(() => {
     queueMicrotask(() => { load(); loadRefs() })
   }, [load, loadRefs])
+
+  useEffect(() => {
+    api.get('/my-status').then(res => {
+      const s = res.data
+      setStatus(s)
+      setPhaseState(s?.phase)
+      if (s?.level_id && s?.level_name) {
+        setUserLevelName(s.level_name)
+        const lvl = levels.find(l => l.id === s.level_id)
+        setUserLevelUrutan(lvl?.urutan ?? null)
+      }
+    }).catch(() => {})
+  }, [levels])
+  useEffect(() => { if (schedulePhase) setPhaseState(schedulePhase) }, [schedulePhase])
 
   const openCreate = () => { setEditing(null); setShowForm(true) }
   const openEdit = (row) => { setEditing(row); setShowForm(true) }
@@ -378,59 +407,140 @@ function MateriList({ jenis }) {
   const trackView = async (row) => {
     setViewing(row)
     try {
-      await api.post(`/materi/${row.id}/progress`, { progress: 100 })
+      const res = await api.post(`/materi/${row.id}/progress`, { progress: 100 })
+      setCompletedIds(prev => new Set([...prev, row.id]))
+      const data = res.data
+      if (data?.level_up) {
+        const isDark = document.documentElement.classList.contains('dark')
+        const Swal = (await import('sweetalert2')).default
+        await Swal.fire({
+          title: 'Naik Level!',
+          html: `Selamat! Anda naik dari <strong>${data.level_up.old_level}</strong> ke <strong>${data.level_up.new_level}</strong>`,
+          icon: 'success',
+          confirmButtonText: 'Lanjut Belajar',
+          background: isDark ? '#14141E' : '#FFFFFF',
+          color: isDark ? '#F1F5F9' : '#0F172A',
+          confirmButtonColor: '#6366f1',
+          customClass: { popup: 'swal-premium', confirmButton: 'swal-confirm-btn' },
+        })
+        const statusRes = await api.get('/my-status')
+        const s = statusRes.data
+        setStatus(s)
+        setUserLevelName(s?.level_name ?? '')
+        const lvl = levels.find(l => l.id === s?.level_id)
+        setUserLevelUrutan(lvl?.urutan ?? null)
+        load()
+      }
     } catch { /* silently fail */ }
   }
 
   const Icon = config.icon
 
+  const pretestDone = schedulePretestDone || status?.pretest_done
+  const phaseBlocked = !isAdmin && phase && (phase === 'exam' || (phase === 'pretest' && !pretestDone))
+  const hasUserLevel = userLevelUrutan !== null
+
+  const levelMap = {}
+  levels.forEach(l => { levelMap[l.id] = l })
+
+  const grouped = {}
+  rows.forEach(row => {
+    const key = row.level_id ?? 0
+    if (!grouped[key]) grouped[key] = []
+    grouped[key].push(row)
+  })
+
+  const sortedGroupKeys = Object.keys(grouped)
+    .map(Number)
+    .sort((a, b) => {
+      const uA = levelMap[a]?.urutan ?? 999
+      const uB = levelMap[b]?.urutan ?? 999
+      return uA - uB
+    })
+
+  function getAccessLevel(row) {
+    if (!hasUserLevel) return 'full'
+    const rowUrutan = row.level?.urutan ?? 0
+    if (rowUrutan <= userLevelUrutan) return 'full'
+    if (rowUrutan === userLevelUrutan + 1) return 'partial'
+    return 'locked'
+  }
+
   return (
     <div className="space-y-5">
       <NotifBanner notif={notif} onClose={() => setNotif(null)} />
 
-      {!showForm && !viewing && (
-        <header className="relative overflow-hidden rounded-2xl border border-[#1E1E2E] border-b-indigo-500/40 bg-[#14141E] p-6 shadow-lg shadow-black/10">
-          <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-indigo-500 to-transparent" />
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div className="flex items-start gap-4">
-              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl shadow-lg" style={{ background: config.gradient }}>
-                <Icon className="h-7 w-7 text-white" />
-              </div>
-              <div>
-                <div className="mb-2 flex items-center gap-2">
-                  <span className="text-xs font-medium uppercase tracking-wider text-indigo-400">Materi</span>
-                  <span className="rounded-full bg-indigo-500/10 px-2.5 py-1 text-xs font-medium text-indigo-400">{rows.length} item</span>
+      {phaseBlocked && (
+        <div className="flex flex-col items-center rounded-2xl border border-[#1E1E2E] bg-[#14141E] py-16">
+          <Icon className="mb-4 h-14 w-14 text-slate-500" />
+          <h6 className="font-bold text-slate-400">Materi belum tersedia</h6>
+          <p className="mt-2 text-sm text-slate-500">{phase === 'exam' ? 'Fokus ujian asesmen. Materi ditutup selama ujian.' : 'Selesaikan pretest terlebih dahulu untuk mengakses materi.'}</p>
+        </div>
+      )}
+
+      {!phaseBlocked && !showForm && !viewing && (
+        <>
+          {hasUserLevel && (
+            <div className="relative overflow-hidden rounded-2xl border border-[#1E1E2E] bg-gradient-to-r from-indigo-600/20 via-violet-600/10 to-transparent p-5 shadow-lg shadow-black/10">
+              <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-indigo-500 to-transparent" />
+              <div className="flex items-center gap-4">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 shadow-lg shadow-indigo-500/30">
+                  <GraduationCap className="h-5 w-5 text-white" />
                 </div>
-                <h1 className="text-xl font-bold text-slate-100">{config.title}</h1>
-                <p className="mt-1 text-sm leading-6 text-slate-400">Jelajahi materi pembelajaran untuk Walidata.</p>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-medium uppercase tracking-wider text-indigo-400">Level Anda</span>
+                    <span className="rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 px-3 py-0.5 text-xs font-bold text-white shadow-sm">{userLevelName}</span>
+                  </div>
+                  <p className="mt-1 text-sm text-slate-400">Selesaikan 100% materi level ini untuk buka level berikutnya</p>
+                </div>
               </div>
             </div>
-            <div className="flex shrink-0 items-center gap-3">
-              <div className="relative">
-                <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
-                <input
-                  className="h-10 w-44 rounded-full border border-[#262636] bg-[#1A1A26] pl-9 pr-4 text-sm text-slate-100 placeholder-slate-500 outline-none transition-all focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/20"
-                  placeholder="Cari materi..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && load()}
-                />
+          )}
+
+          <header className="relative overflow-hidden rounded-2xl border border-[#1E1E2E] border-b-indigo-500/40 bg-[#14141E] p-6 shadow-lg shadow-black/10">
+            <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-indigo-500 to-transparent" />
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div className="flex items-start gap-4">
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl shadow-lg" style={{ background: config.gradient }}>
+                  <Icon className="h-7 w-7 text-white" />
+                </div>
+                <div>
+                  <div className="mb-2 flex items-center gap-2">
+                    <span className="text-xs font-medium uppercase tracking-wider text-indigo-400">Materi</span>
+                    <span className="rounded-full bg-indigo-500/10 px-2.5 py-1 text-xs font-medium text-indigo-400">{rows.length} item</span>
+                  </div>
+                  <h1 className="text-xl font-bold text-slate-100">{config.title}</h1>
+                  <p className="mt-1 text-sm leading-6 text-slate-400">Jelajahi materi pembelajaran untuk Walidata.</p>
+                </div>
               </div>
-              {canCreate && (
-                <button onClick={openCreate} className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-indigo-600 to-violet-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/30 transition-all hover:from-indigo-500 hover:to-violet-500">
-                  <Plus className="h-4 w-4" />Tambah
-                </button>
-              )}
+              <div className="flex shrink-0 items-center gap-3">
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+                  <input
+                    className="h-10 w-44 rounded-full border border-[#262636] bg-[#1A1A26] pl-9 pr-4 text-sm text-slate-100 placeholder-slate-500 outline-none transition-all focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/20"
+                    placeholder="Cari materi..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && load()}
+                  />
+                </div>
+                {canCreate && (
+                  <button onClick={openCreate} className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-indigo-600 to-violet-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/30 transition-all hover:from-indigo-500 hover:to-violet-500">
+                    <Plus className="h-4 w-4" />Tambah
+                  </button>
+                )}
+              </div>
             </div>
-          </div>
-        </header>
+          </header>
+        </>
       )}
 
       {viewing && (
         <ViewModal viewing={viewing} jenis={jenis} config={config} onClose={() => setViewing(null)} onDownload={downloadFile} />
       )}
 
-      {!showForm && !viewing && (
+      {!phaseBlocked && !showForm && !viewing && (
         <div>
           {loading ? (
             <div className="flex items-center justify-center py-16 text-slate-400">
@@ -444,11 +554,75 @@ function MateriList({ jenis }) {
                 <button onClick={openCreate} className="mt-4 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-indigo-600 to-violet-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/30"><Plus className="h-4 w-4" />Tambah Materi</button>
               )}
             </div>
-          ) : (
+          ) : !hasUserLevel ? (
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
               {rows.map((row) => (
                 <MateriCard key={row.id} row={row} config={config} onView={trackView} onDownload={downloadFile} onEdit={openEdit} onRemove={remove} canEdit={canUpdate} canDelete={canDelete} />
               ))}
+            </div>
+          ) : (
+            <div className="space-y-8">
+              {sortedGroupKeys.map((levelId) => {
+                const items = grouped[levelId]
+                const level = levelMap[levelId]
+                const total = items.length
+                const doneCount = items.filter(r => completedIds.has(r.id)).length
+
+                return (
+                  <section key={levelId}>
+                    <div className="mb-3 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="rounded-full bg-indigo-500/10 px-3 py-1 text-xs font-bold text-indigo-400">{level?.nama || 'Tanpa Level'}</span>
+                        <span className="text-xs text-slate-500">{doneCount}/{total} selesai</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="h-1.5 w-32 overflow-hidden rounded-full bg-[#1E1E2E]">
+                          <div className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 transition-all" style={{ width: `${total ? (doneCount / total) * 100 : 0}%` }} />
+                        </div>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                      {items.map((row) => {
+                        const access = getAccessLevel(row)
+                        const isCompleted = completedIds.has(row.id)
+
+                        if (access === 'locked') {
+                          return (
+                            <div key={row.id} className="relative overflow-hidden rounded-2xl border border-[#1E1E2E] bg-[#14141E]/50 p-4 opacity-40">
+                              <div className="flex flex-col items-center py-8">
+                                <span className="text-3xl">🔒</span>
+                                <span className="mt-2 text-xs font-medium text-slate-500">{row.level?.nama}</span>
+                                <span className="mt-4 text-sm text-slate-600">Selesaikan level sebelumnya terlebih dahulu</span>
+                              </div>
+                            </div>
+                          )
+                        }
+
+                        if (access === 'partial') {
+                          return (
+                            <div key={row.id} className="group relative overflow-hidden rounded-2xl border border-[#1E1E2E] bg-[#14141E]/80 p-4 opacity-60">
+                              <div className="flex flex-col items-center py-8">
+                                <span className="rounded-full bg-amber-500/10 px-3 py-1 text-xs font-medium text-amber-400">{row.level?.nama}</span>
+                                <h3 className="mt-3 text-base font-bold text-slate-400">{row.judul}</h3>
+                                <span className="mt-3 text-xs text-slate-500">Selesaikan level sebelumnya</span>
+                              </div>
+                            </div>
+                          )
+                        }
+
+                        return (
+                          <div key={row.id} className="relative">
+                            {isCompleted && (
+                              <span className="absolute right-2 top-2 z-10 rounded-full bg-emerald-500/20 px-2 py-0.5 text-xs font-medium text-emerald-400">✅ Selesai</span>
+                            )}
+                            <MateriCard row={row} config={config} onView={trackView} onDownload={downloadFile} onEdit={openEdit} onRemove={remove} canEdit={canUpdate} canDelete={canDelete} />
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </section>
+                )
+              })}
             </div>
           )}
         </div>

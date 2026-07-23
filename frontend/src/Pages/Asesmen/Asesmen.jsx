@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
-import { AlertCircle as AlertCircleIcon, ClipboardCheck, Clock, ArrowLeft, Award, BookOpen, Shuffle, CheckCircle, XCircle, AlertTriangle, Plus, X, Pencil, Trash2 } from 'lucide-react'
+import { AlertCircle as AlertCircleIcon, ClipboardCheck, Clock, Award, BookOpen, Plus, X, Pencil, Trash2, XCircle } from 'lucide-react'
 import api from '../../api/axios'
 import { confirmAction, confirmDelete } from '../../utils/confirm'
 import Swal from 'sweetalert2'
@@ -13,6 +13,7 @@ const inputClass = 'w-full rounded-xl border border-[#262636] bg-[#1A1A26] px-3 
 const labelClass = 'block text-sm font-medium text-slate-300 mb-1.5'
 
 function Asesmen() {
+  const navigate = useNavigate()
   const [asesmens, setAsesmens] = useState([])
   const [kompetensis, setKompetensis] = useState([])
   const [levels, setLevels] = useState([])
@@ -23,6 +24,11 @@ function Asesmen() {
   const [secondsLeft, setSecondsLeft] = useState(0)
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [phase, setPhase] = useState(null)
+  const [asesmenLulus, setAsesmenLulus] = useState(null)
+  const [asesmenNilai, setAsesmenNilai] = useState(null)
+  const [asesmenStatus, setAsesmenStatus] = useState(null)
+  const [ready, setReady] = useState(false)
   const { user } = useAuth()
   const { register, handleSubmit, reset, formState: { errors, isSubmitted } } = useForm()
   const roles = Array.isArray(user?.roles) ? user.roles : []
@@ -31,22 +37,40 @@ function Asesmen() {
   const answeredCount = Object.values(answers).filter((value) => String(value || '').trim() !== '').length
 
   const load = useCallback(async () => {
-    const [a, k, l] = await Promise.all([api.get('/asesmens'), api.get('/kompetensis'), api.get('/levels')])
+    const [a, k, l, status] = await Promise.all([
+      api.get('/asesmens'), api.get('/kompetensis'), api.get('/levels'),
+      api.get('/my-status').catch(() => null),
+    ])
     setAsesmens(normalize(a.data)); setKompetensis(normalize(k.data)); setLevels(normalize(l.data))
+    setPhase(status?.data?.phase || null)
+    setAsesmenStatus(status?.data?.asesmen_status || null)
+    setAsesmenLulus(status?.data?.asesmen_lulus ?? null)
+    setAsesmenNilai(status?.data?.asesmen_nilai ?? null)
+    setReady(true)
   }, [])
   useEffect(() => { queueMicrotask(() => load()) }, [load])
 
   const submitExam = useCallback(async (auto = false) => {
     if (!auto && !await confirmAction({ title: 'Kumpulkan asesmen?', text: 'Jawaban yang sudah dikirim tidak dapat diubah lagi.', confirmButtonText: 'Ya, kumpulkan', icon: 'question' })) return
     try {
-      const res = await api.post(`/peserta-asesmens/${peserta.id}/submit`)
-      const review = await api.get(`/peserta-asesmens/${res.data.id}/review`)
-      setPeserta(review.data); setActiveTab('result'); await load()
+      const submitRes = await api.post(`/peserta-asesmens/${peserta.id}/submit`)
+      setPeserta(null)
+      setAsesmenStatus('selesai')
+      setAsesmenLulus(null)
+      setAsesmenNilai(submitRes.data?.nilai ?? null)
+      setActiveTab('list')
+      load()
     } catch (e) {
       const isDark = document.documentElement.classList.contains('dark')
       Swal.fire({ icon: 'error', title: 'Gagal', text: e.response?.data?.message || 'Gagal submit asesmen', confirmButtonText: 'Tutup', background: isDark ? '#14141E' : '#FFFFFF', color: isDark ? '#F1F5F9' : '#0F172A', confirmButtonColor: '#6366f1', customClass: { popup: 'swal-premium', confirmButton: 'swal-confirm-btn' } })
     }
   }, [load, peserta])
+  useEffect(() => {
+    if (asesmenLulus === true) {
+      const t = setTimeout(() => navigate('/sertifikat'), 3000)
+      return () => clearTimeout(t)
+    }
+  }, [asesmenLulus, navigate])
   useEffect(() => {
     if (!secondsLeft || !peserta || peserta.status === 'selesai') return
     const timer = setInterval(() => setSecondsLeft((value) => {
@@ -75,7 +99,105 @@ function Asesmen() {
   }
   const saveAnswer = async (soalId, value) => { setAnswers((state) => ({ ...state, [soalId]: value })); if (!peserta?.id) return; try { await api.post(`/peserta-asesmens/${peserta.id}/save-answer`, { bank_soal_id: soalId, jawaban: value }) } catch (e) { alert(e.response?.data?.message || 'Gagal menyimpan jawaban') } }
 
+  const resetExam = async (row) => {
+    const isDark = document.documentElement.classList.contains('dark')
+    const result = await Swal.fire({
+      title: 'Reset ujian?',
+      text: `"${row.judul}" — Jawaban dan sertifikat akan dihapus. User bisa mengulang dari awal.`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Ya, Reset',
+      cancelButtonText: 'Batal',
+      reverseButtons: true,
+      confirmButtonColor: '#EF4444',
+      background: isDark ? '#14141E' : '#FFFFFF',
+      color: isDark ? '#F1F5F9' : '#0F172A',
+      customClass: { popup: 'swal-premium', confirmButton: 'swal-confirm-btn swal-reset-btn', cancelButton: 'swal-cancel-btn' },
+    })
+    if (!result.isConfirmed) return
+    try {
+      await api.post(`/peserta-asesmens/${row.pivot?.peserta_asesmen_id || row.id}/reset`)
+      load()
+    } catch (e) { Swal.fire({ icon: 'error', title: 'Gagal', text: e.response?.data?.message || 'Gagal reset ujian', background: isDark ? '#14141E' : '#FFFFFF', color: isDark ? '#F1F5F9' : '#0F172A', confirmButtonColor: '#6366f1', customClass: { popup: 'swal-premium', confirmButton: 'swal-confirm-btn' } }) }
+  }
+
   const statusStyle = (s) => s === 'published' || s === 'ongoing' ? 'bg-emerald-500/10 text-emerald-400 ring-emerald-400/20' : s === 'finished' ? 'bg-slate-500/10 text-slate-400 ring-slate-400/20' : 'bg-amber-500/10 text-amber-400 ring-amber-400/20'
+
+  const isAdmin = !isWalidata
+  const examLocked = isWalidata && phase && phase !== 'exam'
+
+  if (!ready) {
+    return <div className="flex items-center justify-center py-32"><div className="h-8 w-8 animate-spin rounded-full border-2 border-indigo-400 border-t-transparent" /></div>
+  }
+
+  // Status: Menunggu penilaian essay oleh penguji
+  if (isWalidata && asesmenStatus === 'selesai' && asesmenLulus === null) {
+    return (
+      <div className="mx-auto max-w-2xl space-y-6">
+        <div className="relative overflow-hidden rounded-2xl border border-[#1E1E2E] border-b-amber-500/40 bg-[#14141E] p-8 text-center shadow-lg shadow-black/10">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 shadow-lg shadow-amber-500/30 mb-5">
+            <Clock className="h-8 w-8 text-white" />
+          </div>
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-400 mb-3">Menunggu Penilaian</span>
+          <h2 className="mt-3 text-2xl font-bold text-slate-100">Asesmen Selesai</h2>
+          <p className="mt-2 text-sm text-slate-400">Nilai sementara (PG): <strong className="text-slate-100">{asesmenNilai}</strong></p>
+          <p className="mt-1 text-sm text-slate-500">Jawaban essay sedang dinilai oleh penguji. Hasil akan muncul setelah diverifikasi.</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Status: Lulus ✅
+  if (isWalidata && asesmenStatus === 'selesai' && asesmenLulus === true) {
+    return (
+      <div className="mx-auto max-w-2xl space-y-6">
+        <div className="relative overflow-hidden rounded-2xl border border-[#1E1E2E] border-b-emerald-500/40 bg-[#14141E] p-8 text-center shadow-lg shadow-black/10">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-green-600 shadow-lg shadow-emerald-500/30 mb-5">
+            <Award className="h-8 w-8 text-white" />
+          </div>
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-400 mb-3">Lulus</span>
+          <h2 className="mt-3 text-2xl font-bold text-slate-100">Selamat, Anda Lulus!</h2>
+          <p className="mt-2 text-sm text-slate-400">Nilai akhir: <strong className="text-slate-100">{asesmenNilai}</strong></p>
+          <div className="mt-6 flex justify-center gap-3">
+            <Link to="/sertifikat" className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-indigo-600 to-violet-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/30 transition-all hover:from-indigo-500 hover:to-violet-500"><Award className="h-4 w-4" />Lihat Sertifikat</Link>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Status: Tidak Lulus ❌
+  if (isWalidata && asesmenStatus === 'selesai' && asesmenLulus === false) {
+    return (
+      <div className="mx-auto max-w-2xl space-y-6">
+        <div className="relative overflow-hidden rounded-2xl border border-[#1E1E2E] border-b-rose-500/40 bg-[#14141E] p-8 text-center shadow-lg shadow-black/10">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-rose-500 to-red-600 shadow-lg shadow-rose-500/30 mb-5">
+            <XCircle className="h-8 w-8 text-white" />
+          </div>
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-500/10 px-3 py-1 text-xs font-semibold text-rose-400 mb-3">Belum Lulus</span>
+          <h2 className="mt-3 text-2xl font-bold text-slate-100">Anda belum lulus asesmen</h2>
+          <p className="mt-2 text-sm text-slate-400">Nilai Anda: <strong className="text-slate-100">{asesmenNilai}</strong></p>
+          <p className="mt-1 text-sm text-slate-500">Silakan pelajari materi terlebih dahulu, lalu hubungi admin untuk mereset asesmen agar bisa ujian ulang.</p>
+          <div className="mt-6 flex justify-center gap-3">
+            <button onClick={() => navigate('/pembelajaran')} className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-indigo-600 to-violet-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/30 transition-all hover:from-indigo-500 hover:to-violet-500">
+              <BookOpen className="h-4 w-4" /> Pelajari Lagi
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Status: Belum waktunya exam
+  if (examLocked) {
+    return (
+      <div className="flex flex-col items-center justify-center rounded-2xl border border-[#262636] bg-[#14141E] py-20 shadow-sm">
+        <Clock className="mb-4 h-16 w-16 text-slate-500 opacity-30" />
+        <h2 className="text-xl font-bold text-slate-100">Asesmen Belum Tersedia</h2>
+        <p className="mt-2 text-sm text-slate-400">Asesmen hanya dapat diakses pada jadwal yang telah ditentukan.</p>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -201,22 +323,7 @@ function Asesmen() {
         </div>
       )}
 
-      {/* Result View */}
-      {activeTab === 'result' && peserta && (
-        <div className="rounded-2xl border border-[#262636] bg-[#14141E] px-8 py-14 text-center shadow-sm">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 shadow-lg shadow-indigo-500/30 mb-5">
-            {peserta.lulus ? <CheckCircle className="h-8 w-8 text-white" /> : <XCircle className="h-8 w-8 text-white" />}
-          </div>
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-500/10 px-3 py-1 text-xs font-semibold text-indigo-400 mb-3">Hasil Asesmen</span>
-          <div className={`mt-4 text-6xl font-bold ${peserta.lulus ? 'text-emerald-400' : 'text-rose-400'}`}>{Math.round(Number(peserta.nilai || 0))}</div>
-          <h2 className="mt-3 text-2xl font-bold text-slate-100">{peserta.lulus ? 'Selamat, Anda Lulus!' : 'Belum Lulus'}</h2>
-          <p className="mt-2 text-sm text-slate-400">{peserta.jawaban_pesertas?.length || peserta.jawabanPesertas?.length || answeredCount} jawaban tersimpan dari {questions.length} soal.</p>
-          <div className="mt-8 flex justify-center gap-3">
-            {peserta.lulus ? <Link to="/sertifikat" className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-indigo-600 to-violet-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/30 transition-all hover:from-indigo-500 hover:to-violet-500"><Award className="h-4 w-4" />Lihat Sertifikat</Link> : <Link to="/pembelajaran" className="inline-flex items-center gap-2 rounded-full border border-[#262636] px-5 py-2.5 text-sm font-medium text-slate-300 hover:border-amber-500/30 hover:text-amber-400 transition"><BookOpen className="h-4 w-4" />Rekomendasi Belajar</Link>}
-            <button onClick={() => setActiveTab('list')} className="rounded-lg p-2 text-slate-400 transition hover:bg-white/5 hover:text-slate-200"><X className="h-5 w-5" /></button>
-          </div>
-        </div>
-      )}
+      {/* Result View - Replaced by status checks above */}
     </div>
   )
 }
