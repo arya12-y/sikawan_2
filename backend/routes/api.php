@@ -1,5 +1,13 @@
 <?php
 
+// Handle CORS preflight requests (skip in CLI/test)
+if (php_sapi_name() !== 'cli' && ($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
+    header('Access-Control-Allow-Origin: *');
+    header('Access-Control-Allow-Methods: *');
+    header('Access-Control-Allow-Headers: *');
+    exit(0);
+}
+
 use App\Http\Controllers\Api\AsesmenController;
 use App\Http\Controllers\Api\AuditLogController;
 use App\Http\Controllers\Api\AuthController;
@@ -17,8 +25,16 @@ use App\Http\Controllers\Api\MonitoringController;
 use App\Http\Controllers\Api\NotifikasiController;
 use App\Http\Controllers\Api\OpdController;
 use App\Http\Controllers\Api\PengujiController;
+use App\Http\Controllers\Api\PermissionController;
+use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\SertifikatController;
+
+use App\Http\Controllers\Api\SocialAuthController;
+use App\Http\Controllers\Api\ExamScheduleController;
+use App\Http\Controllers\Api\PretestController;
+use App\Http\Controllers\Api\QuizController;
 use App\Http\Controllers\Api\UserController;
+use App\Http\Controllers\Api\WawancaraController;
 use App\Http\Controllers\Api\WalidataController;
 use Illuminate\Support\Facades\Route;
 
@@ -27,6 +43,11 @@ Route::post('register', [AuthController::class, 'register']);
 Route::post('forgot-password', [AuthController::class, 'forgotPassword']);
 Route::post('reset-password', [AuthController::class, 'resetPassword']);
 Route::get('sertifikat/verify/{nomor}', [SertifikatController::class, 'verify']);
+Route::get('materi/{materi}/file', [MateriController::class, 'serveFile']);
+Route::get('materi/{materi}/download', [MateriController::class, 'downloadFile']);
+Route::get('materi/{materi}/thumbnail', [MateriController::class, 'serveThumbnail']);
+Route::get('auth/{provider}/redirect', [SocialAuthController::class, 'redirect']);
+Route::get('auth/{provider}/callback', [SocialAuthController::class, 'callback']);
 
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('me', [AuthController::class, 'me']);
@@ -61,12 +82,17 @@ Route::middleware('auth:sanctum')->group(function (): void {
     ]);
 
     Route::post('materi/{materi}/publish', [MateriController::class, 'publish']);
+    Route::post('materi/{materi}/progress', [MateriController::class, 'trackProgress']);
     Route::post('asesmens/{asesmen}/attach-soals', [AsesmenController::class, 'attachSoals']);
     Route::post('asesmens/{asesmen}/start', [AsesmenController::class, 'start']);
     Route::post('peserta-asesmens/{peserta}/save-answer', [AsesmenController::class, 'saveAnswer']);
     Route::post('peserta-asesmens/{peserta}/submit', [AsesmenController::class, 'submit']);
+    Route::post('peserta-asesmens/{peserta}/reset', [AsesmenController::class, 'reset']);
     Route::get('peserta-asesmens/{peserta}/review', [AsesmenController::class, 'review']);
     Route::post('jawaban-pesertas/{jawaban}/grade-essay', [AsesmenController::class, 'gradeEssay']);
+    Route::post('peserta-asesmens/{peserta}/approve', [AsesmenController::class, 'approve']);
+    Route::post('peserta-asesmens/{peserta}/tolak', [AsesmenController::class, 'tolak']);
+    Route::get('penilaian/essay', [AsesmenController::class, 'daftarEssay']);
     Route::get('monitoring', [MonitoringController::class, 'index']);
     Route::get('monitoring/users/{user}', [MonitoringController::class, 'user']);
     Route::get('laporan/asesmen', [LaporanController::class, 'asesmen']);
@@ -75,4 +101,24 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('laporan/export-excel', [LaporanController::class, 'exportExcel']);
     Route::post('notifikasis/mark-all-read', [NotifikasiController::class, 'markAllRead']);
     Route::post('notifikasis/{notifikasi}/mark-read', [NotifikasiController::class, 'markRead']);
+    Route::apiResource('roles', RoleController::class);
+    Route::get('permissions', [PermissionController::class, 'index']);
+    Route::apiResource('exam-schedules', ExamScheduleController::class)->only(['index', 'store', 'update', 'destroy']);
+    Route::get('exam-schedules/active', [ExamScheduleController::class, 'active']);
+    Route::get('my-status', [ExamScheduleController::class, 'myStatus']);
+    Route::post('pretest/start', [PretestController::class, 'start']);
+    Route::post('pretest/submit', [PretestController::class, 'submit']);
+    Route::get('pretest/result', [PretestController::class, 'result']);
+    Route::get('pretest/detail', [PretestController::class, 'detail']);
+    Route::get('pretest/monitoring', [PretestController::class, 'monitoring']);
+    Route::post('pretest/reset', [PretestController::class, 'reset']);
+    Route::post('pretest/cleanup', [PretestController::class, 'cleanup']);
+    Route::get('quiz/start', [QuizController::class, 'start']);
+    Route::post('quiz/check', [QuizController::class, 'check']);
+    Route::get('penilaian/wawancara', [WawancaraController::class, 'index']);
+    Route::post('penilaian/wawancara/{peserta}/jadwal', [WawancaraController::class, 'jadwal']);
+    Route::get('penilaian/wawancara/{wawancara}', [WawancaraController::class, 'show']);
+    Route::put('penilaian/wawancara/{wawancara}/nilai', [WawancaraController::class, 'nilai']);
+    Route::post('penilaian/wawancara/{wawancara}/selesai', [WawancaraController::class, 'selesai']);
+    Route::delete('penilaian/wawancara/{wawancara}', [WawancaraController::class, 'destroy']);
 });

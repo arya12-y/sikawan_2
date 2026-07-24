@@ -1,20 +1,12 @@
+import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import api from '../../api/axios'
 
 function ForgotPassword() {
-  const { register, handleSubmit, formState: { isSubmitting, isSubmitSuccessful } } = useForm()
-  const onSubmit = (data) => api.post('/forgot-password', data)
-
-  return (
-    <div className="row justify-content-center"><div className="col-md-5"><div className="card shadow-sm"><div className="card-body p-4">
-      <h4 className="mb-3">Forgot Password</h4>
-      {isSubmitSuccessful && <div className="alert alert-success">Instruksi reset telah dikirim.</div>}
-      <form onSubmit={handleSubmit(onSubmit)}>
-        <input className="form-control mb-3" type="email" placeholder="Email" {...register('email', { required: true })} />
-        <button className="btn btn-primary" disabled={isSubmitting}>Kirim</button>
-      </form>
-    </div></div></div></div>
-  )
+  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm()
+  const [note, setNote] = useState(null)
+  const onSubmit = async (data) => { setNote(null); try { const res = await api.post('/forgot-password', data); setNote({ type: 'success', message: res.data?.message || 'Instruksi reset password telah dikirim ke email Anda.' }) } catch (e) { setNote({ type: 'danger', message: e.response?.data?.message || 'Gagal mengirim instruksi reset password.' }) } }
+  return <main className="flex min-h-screen items-center justify-center bg-slate-950 px-8 py-12"><section className="w-full max-w-md rounded-3xl bg-[#14141E] p-10 shadow-2xl shadow-black/30"><div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-100 text-xl font-bold text-indigo-700">S</div><p className="mt-7 text-sm font-semibold tracking-[0.2em] text-indigo-400">SIKAWAN</p><h1 className="mt-2 text-3xl font-bold text-slate-100">Lupa kata sandi?</h1><p className="mt-3 text-sm leading-6 text-slate-400">Masukkan email akun Anda. Kami akan mengirim instruksi untuk membuat kata sandi baru.</p>{note && <div role="alert" className={`mt-6 rounded-xl border px-4 py-3 text-sm ${note.type === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-rose-200 bg-rose-50 text-rose-700'}`}>{note.message}</div>}<form onSubmit={handleSubmit(onSubmit)} className="mt-7"><label className="block text-sm font-semibold text-slate-300">Email Akun <span className="text-rose-400">*</span></label><input className={`mt-2 w-full rounded-xl border bg-[#09090E] px-4 py-3 text-sm outline-none transition focus:bg-[#14141E] focus:ring-4 ${errors.email ? 'border-rose-400 focus:ring-rose-100' : 'border-[#1E1E2E] focus:border-indigo-500 focus:ring-indigo-100'}`} type="email" placeholder="nama@email.com" {...register('email', { required: 'Email wajib diisi' })} />{errors.email && <p className="mt-2 text-xs font-medium text-rose-600">{errors.email.message}</p>}<button className="mt-6 w-full rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-600/25 hover:bg-indigo-700 disabled:opacity-60" disabled={isSubmitting}>{isSubmitting ? 'Mengirim...' : 'Kirim Instruksi Reset'}</button></form><Link className="mt-7 inline-block text-sm font-semibold text-indigo-400 hover:text-indigo-800" to="/login">← Kembali ke Login</Link></section></main>
 }
-
 export default ForgotPassword

@@ -2,8 +2,6 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Attributes\Casts;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -11,11 +9,17 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-#[Fillable(['kompetensi_id', 'level_id', 'jenis', 'pertanyaan', 'pilihan', 'jawaban_benar', 'pembahasan', 'bobot', 'is_active', 'created_by'])]
-#[Casts(['pilihan' => 'array', 'bobot' => 'decimal:2', 'is_active' => 'boolean'])]
 class BankSoal extends Model
 {
     use HasFactory, SoftDeletes;
+
+    protected $fillable = ['kompetensi_id', 'level_id', 'jenis', 'pertanyaan', 'pilihan', 'jawaban_benar', 'pembahasan', 'bobot', 'is_active', 'created_by'];
+
+    protected $casts = [
+        'pilihan' => 'array',
+        'bobot' => 'decimal:2',
+        'is_active' => 'boolean',
+    ];
 
     public function kompetensi(): BelongsTo
     {

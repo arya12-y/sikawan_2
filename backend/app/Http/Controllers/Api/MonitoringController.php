@@ -11,7 +11,13 @@ class MonitoringController extends Controller
 {
     public function index(Request $request)
     {
-        return response()->json(PesertaAsesmen::with('user', 'asesmen')->latest()->paginate((int) $request->query('per_page', 15)));
+        $query = PesertaAsesmen::with('user', 'asesmen')->latest();
+
+        if ($search = $request->query('search')) {
+            $query->whereHas('user', fn ($q) => $q->where('name', 'like', "%{$search}%"));
+        }
+
+        return response()->json($query->paginate((int) $request->query('per_page', 15)));
     }
 
     public function user($id)

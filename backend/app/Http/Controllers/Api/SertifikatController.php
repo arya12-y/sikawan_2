@@ -14,7 +14,13 @@ class SertifikatController extends Controller
 {
     public function index(Request $request)
     {
-        return response()->json(Sertifikat::with('user', 'asesmen', 'kompetensi', 'level')->latest()->paginate((int) $request->query('per_page', 15)));
+        $query = Sertifikat::with('user', 'asesmen', 'kompetensi', 'level')->latest();
+
+        if ($request->user()?->hasRole('Walidata')) {
+            $query->where('user_id', $request->user()->id);
+        }
+
+        return response()->json($query->paginate((int) $request->query('per_page', 15)));
     }
 
     public function generate(AssessmentService $service, $pesertaId)
@@ -29,7 +35,8 @@ class SertifikatController extends Controller
     public function download($id)
     {
         $sertifikat = Sertifikat::with('user', 'asesmen', 'kompetensi', 'level')->findOrFail($id);
-        $pdf = Pdf::loadHTML('<h1>Sertifikat Kompetensi</h1><p>'.e($sertifikat->user?->name ?? '').'</p><p>'.e($sertifikat->nomor_sertifikat).'</p>');
+        $pdf = Pdf::loadView('sertifikat.pdf', ['sertifikat' => $sertifikat]);
+        $pdf->setOption('isRemoteEnabled', true);
 
         return $pdf->download($sertifikat->nomor_sertifikat.'.pdf');
     }

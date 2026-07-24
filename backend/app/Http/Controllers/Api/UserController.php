@@ -63,4 +63,21 @@ class UserController extends CrudController
 
         return response()->json($user->load($this->with));
     }
+
+    public function destroy($id)
+    {
+        $request = request();
+        $user = User::withTrashed()->findOrFail($id);
+        $old = $user->toArray();
+
+        if ($request->boolean('force') && $request->user()?->hasRole('Super Admin')) {
+            $user->forceDelete();
+            AuditLogService::log('delete', 'User', null, $old, null);
+            return response()->json(['message' => 'Pengguna berhasil dihapus permanen']);
+        }
+
+        $user->delete();
+        AuditLogService::log('delete', 'User', null, $old, null);
+        return response()->json(['message' => 'Pengguna berhasil dihapus']);
+    }
 }
